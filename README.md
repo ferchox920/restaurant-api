@@ -16,7 +16,7 @@ Construir una API backend que permita administrar la operacion comercial basica 
 
 ## Alcance Actual
 
-El alcance actual corresponde al diseno funcional del MVP y define:
+El alcance actual combina el diseno funcional del MVP con la implementacion tecnica realizada hasta Sprint 3. Hoy el proyecto incluye:
 
 - Modelo conceptual del dominio.
 - Reglas de negocio principales.
@@ -25,8 +25,11 @@ El alcance actual corresponde al diseno funcional del MVP y define:
 - Roles iniciales y permisos funcionales.
 - Criterios de aceptacion.
 - Flujo principal del sistema.
+- Base tecnica NestJS con Prisma, Swagger, validacion global y health check.
+- Usuarios internos, autenticacion JWT y autorizacion por roles.
+- Catalogo base con categorias, canales de venta y productos.
 
-En esta etapa no existe implementacion de backend todavia. El proyecto se encuentra en preparacion documental para iniciar Sprint 1.
+Los modulos de costos, precios, inventario y tickets permanecen pendientes para los siguientes sprints.
 
 ## Funcionalidades Fuera del MVP
 
@@ -52,6 +55,7 @@ Quedan explicitamente fuera del MVP:
 - [07-main-business-flow.md](D:/PersonalProyect/restaurat-api/docs/07-main-business-flow.md): flujo principal del sistema de punta a punta.
 - [08-sprint-1-technical-foundation.md](D:/PersonalProyect/restaurat-api/docs/08-sprint-1-technical-foundation.md): resumen tecnico de la base implementada en Sprint 1.
 - [09-sprint-2-auth-users-roles.md](D:/PersonalProyect/restaurat-api/docs/09-sprint-2-auth-users-roles.md): resumen tecnico de usuarios, autenticacion JWT y autorizacion por rol implementados en Sprint 2.
+- [10-sprint-3-catalog.md](D:/PersonalProyect/restaurat-api/docs/10-sprint-3-catalog.md): resumen tecnico del catalogo base con categorias, canales de venta y productos implementados en Sprint 3.
 
 ## Flujo Principal Resumido
 
@@ -83,7 +87,85 @@ Sin implementacion todavia, el stack objetivo para Sprint 1 en adelante es:
 - `Sprint 0`: diseno funcional y contrato del sistema.
 - `Sprint 1`: base tecnica inicial del backend implementada.
 - `Sprint 2`: usuarios, autenticacion JWT y roles basicos implementados.
-- La siguiente etapa prevista es continuar con modulos de negocio y contratos de API.
+- `Sprint 3`: catalogo base con categorias, canales de venta y productos implementado.
+- La siguiente etapa prevista es incorporar costos y precios del catalogo.
+
+## Sprint 3 - Catalogo de productos, categorias y canales
+
+Sprint 3 agrega una primera capa operativa de catalogo, protegida con JWT y roles, sin incorporar todavia costos historicos, precios por canal, stock ni tickets.
+
+### Alcance implementado
+
+- Modelo `Category`.
+- Modelo `SalesChannel`.
+- Modelo `Product`.
+- Enums `ProductUnit`, `StockManagementType` y `CommissionType`.
+- Endpoints administrativos para categorias, canales y productos.
+- Seed inicial de categorias y canales.
+- Tests unitarios para los servicios del catalogo.
+
+### Como correr migraciones
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. Ejecutar `npm run prisma:migrate -- --name add_catalog_entities` si se necesita recrear la migracion en desarrollo.
+3. Ejecutar `npm run prisma:generate` para regenerar el cliente Prisma.
+
+### Como ejecutar seed
+
+- Ejecutar `npm run prisma:seed`.
+- El seed conserva el `ADMIN` inicial del Sprint 2.
+- El seed agrega categorias y canales base sin duplicarlos.
+
+### Endpoints de categorias
+
+- `POST /api/categories`
+- `GET /api/categories`
+- `GET /api/categories/:id`
+- `PATCH /api/categories/:id`
+- `PATCH /api/categories/:id/deactivate`
+- `PATCH /api/categories/:id/reactivate`
+
+### Endpoints de canales
+
+- `POST /api/sales-channels`
+- `GET /api/sales-channels`
+- `GET /api/sales-channels/:id`
+- `PATCH /api/sales-channels/:id`
+- `PATCH /api/sales-channels/:id/deactivate`
+- `PATCH /api/sales-channels/:id/reactivate`
+
+### Endpoints de productos
+
+- `POST /api/products`
+- `GET /api/products`
+- `GET /api/products/:id`
+- `PATCH /api/products/:id`
+- `PATCH /api/products/:id/deactivate`
+- `PATCH /api/products/:id/reactivate`
+
+### Roles permitidos
+
+- `ADMIN` y `MANAGER`: crear, editar, desactivar y reactivar categorias, canales y productos.
+- `ADMIN`, `MANAGER`, `AUDITOR` y `CASHIER`: listar y consultar categorias, canales y productos.
+
+### Reglas importantes del catalogo
+
+- El producto puede existir sin stock.
+- Crear producto no crea stock.
+- No hay eliminacion fisica; hay desactivacion logica.
+- Una categoria inactiva no puede asignarse a nuevos productos.
+
+### Que queda pendiente para Sprint 4
+
+- Costos historicos por producto.
+- Precios historicos y precios por canal.
+- Reglas de valorizacion comercial del catalogo.
+
+Tambien queda explicitamente fuera de Sprint 3:
+
+- Inventario operativo, previsto para Sprint 5.
+- Tickets de venta, previstos para Sprint 6.
+- Auditoria de negocio completa.
 
 ## Sprint 2 - Usuarios, autenticacion y roles
 
@@ -93,8 +175,8 @@ Sprint 2 agrega gestion administrativa de usuarios, autenticacion JWT y una poli
 
 - Modelo `User` en Prisma.
 - Enum `Role` con `ADMIN`, `MANAGER`, `CASHIER` y `AUDITOR`.
-- Login con `POST /auth/login`.
-- Consulta de usuario autenticado con `GET /auth/me`.
+- Login con `POST /api/auth/login`.
+- Consulta de usuario autenticado con `GET /api/auth/me`.
 - Gestion de usuarios restringida a `ADMIN`.
 - Seed inicial de usuario `ADMIN`.
 
@@ -144,14 +226,14 @@ Authorization: Bearer JWT_TOKEN
 ### Endpoints disponibles
 
 - `GET /api` endpoint base temporal de bootstrap
-- `POST /auth/login`
-- `GET /auth/me`
-- `POST /users`
-- `GET /users`
-- `GET /users/:id`
-- `PATCH /users/:id`
-- `PATCH /users/:id/deactivate`
-- `PATCH /users/:id/reactivate`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/users`
+- `GET /api/users`
+- `GET /api/users/:id`
+- `PATCH /api/users/:id`
+- `PATCH /api/users/:id/deactivate`
+- `PATCH /api/users/:id/reactivate`
 
 ### Restricciones actuales
 
