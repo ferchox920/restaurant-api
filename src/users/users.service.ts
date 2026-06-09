@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../database/prisma.service';
@@ -139,13 +138,13 @@ export class UsersService {
       throw new NotFoundException(`User with id "${id}" was not found.`);
     }
 
-    if (user.role !== Role.ADMIN || !user.active) {
+    if (user.role !== 'ADMIN' || !user.active) {
       return;
     }
 
     const activeAdminsCount = await this.prisma.user.count({
       where: {
-        role: Role.ADMIN,
+        role: 'ADMIN',
         active: true,
       },
     });

@@ -82,8 +82,8 @@ Sprint 2 aplica una politica conservadora para la gestion de usuarios.
 
 ### Politica actual
 
-- Todos los endpoints de `/users` requieren JWT.
-- Todos los endpoints de `/users` quedan restringidos a rol `ADMIN`.
+- Todos los endpoints de `/api/users` requieren JWT.
+- Todos los endpoints de `/api/users` quedan restringidos a rol `ADMIN`.
 - `MANAGER`, `CASHIER` y `AUDITOR` no pueden gestionar usuarios en este sprint.
 
 ### Infraestructura de autorizacion agregada
@@ -98,17 +98,17 @@ Sprint 2 aplica una politica conservadora para la gestion de usuarios.
 
 ### Auth
 
-- `POST /auth/login`
-- `GET /auth/me`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 
 ### Users
 
-- `POST /users`
-- `GET /users`
-- `GET /users/:id`
-- `PATCH /users/:id`
-- `PATCH /users/:id/deactivate`
-- `PATCH /users/:id/reactivate`
+- `POST /api/users`
+- `GET /api/users`
+- `GET /api/users/:id`
+- `PATCH /api/users/:id`
+- `PATCH /api/users/:id/deactivate`
+- `PATCH /api/users/:id/reactivate`
 
 ## Variables de entorno agregadas
 
@@ -200,9 +200,9 @@ Sprint 2 se considera aceptado si se cumplen los siguientes puntos:
 - Existe enum `Role`.
 - Se puede generar y aplicar migracion correspondiente.
 - Se puede crear un usuario con password hasheada.
-- `POST /auth/login` devuelve JWT en caso exitoso.
-- `GET /auth/me` devuelve el usuario autenticado con Bearer token valido.
-- `/users` queda protegido con JWT y restringido a `ADMIN`.
+- `POST /api/auth/login` devuelve JWT en caso exitoso.
+- `GET /api/auth/me` devuelve el usuario autenticado con Bearer token valido.
+- `/api/users` queda protegido con JWT y restringido a `ADMIN`.
 - No se expone `passwordHash` en respuestas.
 - El seed inicial de `ADMIN` funciona y no duplica usuarios.
 - Existen tests para flujo critico de `UsersService`, `AuthService` y autorizacion por rol.
