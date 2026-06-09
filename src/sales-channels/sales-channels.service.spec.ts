@@ -2,8 +2,9 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { CommissionType, Prisma } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
+import { CommissionType } from './sales-channel.enums';
 import { SalesChannelsService } from './sales-channels.service';
 
 describe('SalesChannelsService', () => {
@@ -42,7 +43,7 @@ describe('SalesChannelsService', () => {
       code: 'COUNTER',
       description: null,
       commissionType: CommissionType.NONE,
-      commissionValue: new Prisma.Decimal(0),
+      commissionValue: new Decimal(0),
       active: true,
       createdById: 'manager-1',
       createdAt: new Date('2026-06-09T00:00:00.000Z'),
@@ -113,7 +114,7 @@ describe('SalesChannelsService', () => {
       code: 'DINING_ROOM',
       description: null,
       commissionType: CommissionType.NONE,
-      commissionValue: new Prisma.Decimal(0),
+      commissionValue: new Decimal(0),
       active: true,
       createdById: 'manager-1',
       createdAt: new Date('2026-06-09T00:00:00.000Z'),
@@ -158,7 +159,7 @@ describe('SalesChannelsService', () => {
       code: 'WHATSAPP',
       description: null,
       commissionType: CommissionType.NONE,
-      commissionValue: new Prisma.Decimal(0),
+      commissionValue: new Decimal(0),
       active: false,
       createdById: 'manager-1',
       createdAt: new Date('2026-06-09T00:00:00.000Z'),
@@ -181,7 +182,7 @@ describe('SalesChannelsService', () => {
       code: 'WHATSAPP',
       description: null,
       commissionType: CommissionType.NONE,
-      commissionValue: new Prisma.Decimal(0),
+      commissionValue: new Decimal(0),
       active: true,
       createdById: 'manager-1',
       createdAt: new Date('2026-06-09T00:00:00.000Z'),

@@ -16,7 +16,7 @@ Construir una API backend que permita administrar la operacion comercial basica 
 
 ## Alcance Actual
 
-El alcance actual combina el diseno funcional del MVP con la implementacion tecnica realizada hasta Sprint 3. Hoy el proyecto incluye:
+El alcance actual combina el diseno funcional del MVP con la implementacion tecnica realizada hasta Sprint 5. Hoy el proyecto incluye:
 
 - Modelo conceptual del dominio.
 - Reglas de negocio principales.
@@ -28,8 +28,11 @@ El alcance actual combina el diseno funcional del MVP con la implementacion tecn
 - Base tecnica NestJS con Prisma, Swagger, validacion global y health check.
 - Usuarios internos, autenticacion JWT y autorizacion por roles.
 - Catalogo base con categorias, canales de venta y productos.
+- Costos historicos por producto.
+- Precios historicos por producto y canal.
+- Inventario de producto finalizado mediante movimientos historicos y proyeccion de stock actual.
 
-Los modulos de costos, precios, inventario y tickets permanecen pendientes para los siguientes sprints.
+Los tickets y ventas permanecen pendientes para los siguientes sprints.
 
 ## Funcionalidades Fuera del MVP
 
@@ -88,7 +91,9 @@ Sin implementacion todavia, el stack objetivo para Sprint 1 en adelante es:
 - `Sprint 1`: base tecnica inicial del backend implementada.
 - `Sprint 2`: usuarios, autenticacion JWT y roles basicos implementados.
 - `Sprint 3`: catalogo base con categorias, canales de venta y productos implementado.
-- La siguiente etapa prevista es incorporar costos y precios del catalogo.
+- `Sprint 4`: costos historicos por producto y precios historicos por producto/canal implementados.
+- `Sprint 5`: inventario de producto finalizado implementado.
+- La siguiente etapa prevista es incorporar tickets y ventas operativas.
 
 ## Sprint 3 - Catalogo de productos, categorias y canales
 
@@ -155,17 +160,185 @@ Sprint 3 agrega una primera capa operativa de catalogo, protegida con JWT y role
 - No hay eliminacion fisica; hay desactivacion logica.
 - Una categoria inactiva no puede asignarse a nuevos productos.
 
-### Que queda pendiente para Sprint 4
-
-- Costos historicos por producto.
-- Precios historicos y precios por canal.
-- Reglas de valorizacion comercial del catalogo.
-
-Tambien queda explicitamente fuera de Sprint 3:
+### Que queda pendiente despues de Sprint 3
 
 - Inventario operativo, previsto para Sprint 5.
 - Tickets de venta, previstos para Sprint 6.
 - Auditoria de negocio completa.
+
+## Sprint 4 - Costos y precios historizados
+
+Sprint 4 agrega costos historicos por producto y precios historicos por producto/canal, ambos con versionado inmediato y sin modificar versiones anteriores.
+
+### Alcance implementado
+
+- Modelo `ProductCostHistory`.
+- Modelo `ProductPriceHistory`.
+- Endpoints para crear y consultar costos historicos.
+- Endpoints para crear y consultar precios historicos por canal.
+- Mapeo de montos como `string` decimal en responses.
+- Tests unitarios de servicios, DTOs y metadata de roles.
+
+### Como correr migraciones de Sprint 4
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. Ejecutar `npm run prisma:migrate -- --name add_cost_and_price_history` si hace falta recrear la migracion en desarrollo.
+3. Ejecutar `npm run prisma:generate` para regenerar el cliente Prisma.
+
+### Endpoints de costos
+
+- `POST /api/products/:id/costs`
+- `GET /api/products/:id/costs`
+- `GET /api/products/:id/costs/current`
+
+### Endpoints de precios
+
+- `POST /api/products/:id/prices`
+- `GET /api/products/:id/prices`
+- `GET /api/products/:id/prices/current?channelId=<uuid>`
+
+### Roles permitidos
+
+- Costos `POST`: `ADMIN`, `MANAGER`
+- Costos `GET`: `ADMIN`, `MANAGER`, `AUDITOR`
+- Precios `POST`: `ADMIN`, `MANAGER`
+- Precios historial `GET`: `ADMIN`, `MANAGER`, `AUDITOR`
+- Precio vigente `GET`: `ADMIN`, `MANAGER`, `CASHIER`, `AUDITOR`
+
+### Ejemplos basicos
+
+Crear costo:
+
+```json
+{
+  "cost": 3000
+}
+```
+
+Crear precio:
+
+```json
+{
+  "salesChannelId": "0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4",
+  "price": 7000
+}
+```
+
+Consultar precio vigente:
+
+```text
+GET /api/products/:id/prices/current?channelId=0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4
+```
+
+### Que queda pendiente despues de Sprint 4
+
+- Inventario operativo, previsto para Sprint 5.
+- Tickets de venta, previstos para Sprint 6.
+- Auditoria de negocio completa.
+
+## Sprint 5 - Inventario de producto finalizado
+
+Sprint 5 agrega inventario de producto finalizado mediante movimientos historicos y una proyeccion rapida del stock actual.
+
+### Alcance implementado
+
+- Modelo `ProductStock`.
+- Modelo `InventoryMovement`.
+- Enums `InventoryMovementType` e `InventoryReferenceType`.
+- Endpoints para consultar inventario y movimientos.
+- Endpoints para `STOCK_IN`, `MANUAL_ADJUSTMENT`, `WASTE`, `RETURN_IN` y actualizacion de `minimumStock`.
+- Validaciones para `FINISHED_PRODUCT`, producto activo y no stock negativo.
+- Tests unitarios para DTOs, mappers, `InventoryService` y metadata de roles de `InventoryController`.
+
+### Como correr migraciones de Sprint 5
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. La migracion versionada de Sprint 5 vive en `prisma/migrations/20260609233000_add_finished_product_inventory/`.
+3. Ejecutar `npm run prisma:generate` para regenerar el cliente Prisma.
+4. Si hace falta recrear la migracion en desarrollo, usar `npm run prisma:migrate -- --name add_finished_product_inventory`.
+
+### Endpoints de inventario
+
+- `GET /api/inventory`
+- `GET /api/inventory/products/:productId`
+- `GET /api/inventory/movements`
+- `GET /api/inventory/products/:productId/movements`
+- `POST /api/inventory/products/:productId/stock-in`
+- `POST /api/inventory/products/:productId/adjust`
+- `POST /api/inventory/products/:productId/waste`
+- `POST /api/inventory/products/:productId/return-in`
+- `PATCH /api/inventory/products/:productId/minimum-stock`
+
+### Roles permitidos
+
+- Inventario actual `GET`: `ADMIN`, `MANAGER`, `CASHIER`, `AUDITOR`
+- Movimientos `GET`: `ADMIN`, `MANAGER`, `AUDITOR`
+- Operaciones de stock `POST/PATCH`: `ADMIN`, `MANAGER`
+
+### Ejemplos basicos
+
+Stock in:
+
+```json
+{
+  "quantity": 3,
+  "reason": "Produccion inicial del dia"
+}
+```
+
+Waste:
+
+```json
+{
+  "quantity": 1,
+  "reason": "Producto danado"
+}
+```
+
+Manual adjustment:
+
+```json
+{
+  "newStock": 5,
+  "reason": "Conteo fisico de cierre"
+}
+```
+
+Return in:
+
+```json
+{
+  "quantity": 1,
+  "reason": "Reingreso manual"
+}
+```
+
+Minimum stock:
+
+```json
+{
+  "minimumStock": 2
+}
+```
+
+### Reglas importantes de inventario
+
+- El inventario es solo de producto finalizado.
+- Crear producto no crea stock automaticamente.
+- El stock nace desde movimientos.
+- `ProductStock` es la proyeccion del stock actual.
+- `InventoryMovement` es el historial auditable.
+- No se permite stock negativo.
+- `SALE_OUT` y `VOID_REVERSAL` quedan reservados para sprints de ventas.
+
+### Que queda pendiente para Sprint 6
+
+- Tickets de venta.
+- Confirmacion de ventas.
+- Descuento automatico de stock por ventas.
+- Reversion por anulacion de venta.
+- Auditoria de negocio completa.
+- Insumos y recetas.
 
 ## Sprint 2 - Usuarios, autenticacion y roles
 

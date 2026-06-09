@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CommissionType } from '@prisma/client';
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { CommissionType } from '../sales-channel.enums';
 
 export class CreateSalesChannelDto {
   @ApiProperty({ example: 'Mostrador' })

@@ -1,8 +1,20 @@
-import { Prisma } from '@prisma/client';
 import { SalesChannelResponseDto } from './dto/sales-channel-response.dto';
+import { CommissionType } from './sales-channel.enums';
 
-export type SalesChannelRecord =
-  Prisma.SalesChannelGetPayload<Record<string, never>>;
+export type SalesChannelRecord = {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  commissionType: CommissionType;
+  commissionValue: {
+    toString(): string;
+  } | number;
+  active: boolean;
+  createdById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export function toSalesChannelResponse(
   salesChannel: SalesChannelRecord,

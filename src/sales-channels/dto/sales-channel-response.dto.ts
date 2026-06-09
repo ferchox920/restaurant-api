@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CommissionType } from '@prisma/client';
+import { CommissionType } from '../sales-channel.enums';
 
 export class SalesChannelResponseDto {
   @ApiProperty({ format: 'uuid' })

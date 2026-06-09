@@ -22,7 +22,6 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CommissionType, Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -41,7 +40,7 @@ export class SalesChannelsController {
   constructor(private readonly salesChannelsService: SalesChannelsService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Crear canal de venta',
     description:
@@ -69,7 +68,7 @@ export class SalesChannelsController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.MANAGER, Role.AUDITOR, Role.CASHIER)
+  @Roles('ADMIN', 'MANAGER', 'AUDITOR', 'CASHIER')
   @ApiOperation({
     summary: 'Listar canales de venta',
     description:
@@ -101,7 +100,7 @@ export class SalesChannelsController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.MANAGER, Role.AUDITOR, Role.CASHIER)
+  @Roles('ADMIN', 'MANAGER', 'AUDITOR', 'CASHIER')
   @ApiOperation({
     summary: 'Obtener canal de venta por id',
     description:
@@ -128,7 +127,7 @@ export class SalesChannelsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Actualizar canal de venta',
     description:
@@ -159,7 +158,7 @@ export class SalesChannelsController {
   }
 
   @Patch(':id/deactivate')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Desactivar canal de venta',
     description:
@@ -186,7 +185,7 @@ export class SalesChannelsController {
   }
 
   @Patch(':id/reactivate')
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Reactivar canal de venta',
     description:
