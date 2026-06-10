@@ -44,6 +44,13 @@ type ProductStockRecord = {
 };
 
 type InventoryTransactionClient = Prisma.TransactionClient;
+type InternalMovementParams = {
+  productId: string;
+  quantity: Decimal | number | string;
+  reason: string;
+  referenceId?: string;
+  createdById: string;
+};
 
 @Injectable()
 export class InventoryService {
@@ -175,37 +182,15 @@ export class InventoryService {
 
     const movement = await this.prisma.$transaction(
       async (tx: InventoryTransactionClient) => {
-      const stock = await this.ensureProductStock(tx, productId);
-      const previousStock = stock.currentStock;
-      const quantity = new Decimal(dto.quantity);
-      const newStock = previousStock.add(quantity);
-
-      await tx.productStock.update({
-        where: { productId },
-        data: {
-          currentStock: newStock,
-        },
-      });
-
-      return tx.inventoryMovement.create({
-        data: {
+        return this.applyMovement(tx, {
           productId,
-          movementType: InventoryMovementType.STOCK_IN,
-          quantity,
-          previousStock,
-          newStock,
+          quantity: dto.quantity,
           reason: dto.reason,
-          referenceType: InventoryReferenceType.MANUAL,
           createdById,
-        },
-        include: {
-          product: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      });
+          movementType: InventoryMovementType.STOCK_IN,
+          referenceType: InventoryReferenceType.MANUAL,
+          operation: 'add',
+        });
       },
     );
 
@@ -224,44 +209,26 @@ export class InventoryService {
 
     const movement = await this.prisma.$transaction(
       async (tx: InventoryTransactionClient) => {
-      const stock = await this.ensureProductStock(tx, productId);
-      const previousStock = stock.currentStock;
-      const newStock = new Decimal(dto.newStock);
+        const stock = await this.getOrCreateProductStockForUpdate(tx, productId);
+        const previousStock = stock.currentStock;
+        const newStock = new Decimal(dto.newStock);
 
-      if (newStock.eq(previousStock)) {
-        throw new ConflictException(
-          'Manual adjustment target matches the current stock and would not create a meaningful movement.',
-        );
-      }
+        if (newStock.eq(previousStock)) {
+          throw new ConflictException(
+            'Manual adjustment target matches the current stock and would not create a meaningful movement.',
+          );
+        }
 
-      const quantity = previousStock.sub(newStock).abs();
-
-      await tx.productStock.update({
-        where: { productId },
-        data: {
-          currentStock: newStock,
-        },
-      });
-
-      return tx.inventoryMovement.create({
-        data: {
+        return this.persistMovement(tx, {
           productId,
-          movementType: InventoryMovementType.MANUAL_ADJUSTMENT,
-          quantity,
+          quantity: previousStock.sub(newStock).abs(),
           previousStock,
           newStock,
           reason: dto.reason,
-          referenceType: InventoryReferenceType.MANUAL,
           createdById,
-        },
-        include: {
-          product: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      });
+          movementType: InventoryMovementType.MANUAL_ADJUSTMENT,
+          referenceType: InventoryReferenceType.MANUAL,
+        });
       },
     );
 
@@ -280,43 +247,17 @@ export class InventoryService {
 
     const movement = await this.prisma.$transaction(
       async (tx: InventoryTransactionClient) => {
-      const stock = await this.ensureProductStock(tx, productId);
-      const previousStock = stock.currentStock;
-      const quantity = new Decimal(dto.quantity);
-      const newStock = previousStock.sub(quantity);
-
-      if (newStock.lt(0)) {
-        throw new ConflictException(
-          'Insufficient stock to register waste for the requested quantity.',
-        );
-      }
-
-      await tx.productStock.update({
-        where: { productId },
-        data: {
-          currentStock: newStock,
-        },
-      });
-
-      return tx.inventoryMovement.create({
-        data: {
+        return this.applyMovement(tx, {
           productId,
-          movementType: InventoryMovementType.WASTE,
-          quantity,
-          previousStock,
-          newStock,
+          quantity: dto.quantity,
           reason: dto.reason,
-          referenceType: InventoryReferenceType.MANUAL,
           createdById,
-        },
-        include: {
-          product: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      });
+          movementType: InventoryMovementType.WASTE,
+          referenceType: InventoryReferenceType.MANUAL,
+          operation: 'subtract',
+          insufficientStockMessage:
+            'Insufficient stock to register waste for the requested quantity.',
+        });
       },
     );
 
@@ -335,37 +276,15 @@ export class InventoryService {
 
     const movement = await this.prisma.$transaction(
       async (tx: InventoryTransactionClient) => {
-      const stock = await this.ensureProductStock(tx, productId);
-      const previousStock = stock.currentStock;
-      const quantity = new Decimal(dto.quantity);
-      const newStock = previousStock.add(quantity);
-
-      await tx.productStock.update({
-        where: { productId },
-        data: {
-          currentStock: newStock,
-        },
-      });
-
-      return tx.inventoryMovement.create({
-        data: {
+        return this.applyMovement(tx, {
           productId,
-          movementType: InventoryMovementType.RETURN_IN,
-          quantity,
-          previousStock,
-          newStock,
+          quantity: dto.quantity,
           reason: dto.reason,
-          referenceType: InventoryReferenceType.MANUAL,
           createdById,
-        },
-        include: {
-          product: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      });
+          movementType: InventoryMovementType.RETURN_IN,
+          referenceType: InventoryReferenceType.MANUAL,
+          operation: 'add',
+        });
       },
     );
 
@@ -399,6 +318,53 @@ export class InventoryService {
         currentStock: stock.currentStock,
         minimumStock: stock.minimumStock,
         updatedAt: stock.updatedAt,
+      },
+    });
+  }
+
+  async applySaleOut(
+    params: InternalMovementParams,
+    tx: InventoryTransactionClient,
+  ): Promise<void> {
+    await this.applyMovement(tx, {
+      ...params,
+      movementType: InventoryMovementType.SALE_OUT,
+      referenceType: InventoryReferenceType.SALE_TICKET,
+      operation: 'subtract',
+      insufficientStockMessage:
+        'Insufficient stock to confirm the sale ticket for the requested product.',
+    });
+  }
+
+  async applyVoidReversal(
+    params: InternalMovementParams,
+    tx: InventoryTransactionClient,
+  ): Promise<void> {
+    await this.applyMovement(tx, {
+      ...params,
+      movementType: InventoryMovementType.VOID_REVERSAL,
+      referenceType: InventoryReferenceType.SALE_VOID,
+      operation: 'add',
+    });
+  }
+
+  async getOrCreateProductStockForUpdate(
+    tx: InventoryTransactionClient,
+    productId: string,
+  ): Promise<ProductStockRecord> {
+    const existingStock = await tx.productStock.findUnique({
+      where: { productId },
+    });
+
+    if (existingStock) {
+      return existingStock;
+    }
+
+    return tx.productStock.create({
+      data: {
+        productId,
+        currentStock: new Decimal(0),
+        minimumStock: new Decimal(0),
       },
     });
   }
@@ -456,23 +422,82 @@ export class InventoryService {
     }
   }
 
-  private async ensureProductStock(
+  private async applyMovement(
     tx: InventoryTransactionClient,
-    productId: string,
-  ): Promise<ProductStockRecord> {
-    const existingStock = await tx.productStock.findUnique({
-      where: { productId },
-    });
+    params: InternalMovementParams & {
+      movementType: InventoryMovementType;
+      referenceType: InventoryReferenceType;
+      operation: 'add' | 'subtract';
+      insufficientStockMessage?: string;
+    },
+  ) {
+    const stock = await this.getOrCreateProductStockForUpdate(tx, params.productId);
+    const previousStock = stock.currentStock;
+    const quantity = new Decimal(params.quantity);
+    const newStock =
+      params.operation === 'add'
+        ? previousStock.add(quantity)
+        : previousStock.sub(quantity);
 
-    if (existingStock) {
-      return existingStock;
+    if (newStock.lt(0)) {
+      throw new ConflictException(
+        params.insufficientStockMessage ??
+          'The requested inventory movement would leave the product with negative stock.',
+      );
     }
 
-    return tx.productStock.create({
+    return this.persistMovement(tx, {
+      productId: params.productId,
+      quantity,
+      previousStock,
+      newStock,
+      reason: params.reason,
+      referenceId: params.referenceId,
+      createdById: params.createdById,
+      movementType: params.movementType,
+      referenceType: params.referenceType,
+    });
+  }
+
+  private async persistMovement(
+    tx: InventoryTransactionClient,
+    params: {
+      productId: string;
+      quantity: Decimal;
+      previousStock: Decimal;
+      newStock: Decimal;
+      reason: string;
+      referenceId?: string;
+      createdById: string;
+      movementType: InventoryMovementType;
+      referenceType: InventoryReferenceType;
+    },
+  ) {
+    await tx.productStock.update({
+      where: { productId: params.productId },
       data: {
-        productId,
-        currentStock: new Decimal(0),
-        minimumStock: new Decimal(0),
+        currentStock: params.newStock,
+      },
+    });
+
+    return tx.inventoryMovement.create({
+      data: {
+        productId: params.productId,
+        movementType: params.movementType,
+        quantity: params.quantity,
+        previousStock: params.previousStock,
+        newStock: params.newStock,
+        reason: params.reason,
+        referenceType: params.referenceType,
+        referenceId: params.referenceId,
+        createdById: params.createdById,
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }

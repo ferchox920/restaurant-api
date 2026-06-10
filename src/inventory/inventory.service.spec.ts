@@ -3,7 +3,10 @@ import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
 import { StockManagementType } from '../products/product.enums';
-import { InventoryMovementType } from './inventory.enums';
+import {
+  InventoryMovementType,
+  InventoryReferenceType,
+} from './inventory.enums';
 import { InventoryService } from './inventory.service';
 
 describe('InventoryService', () => {
@@ -639,5 +642,209 @@ describe('InventoryService', () => {
     await expect(
       service.stockIn('product-1', { quantity: 1, reason: 'Carga' }, 'manager-1'),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('creates missing ProductStock through the internal helper', async () => {
+    const tx = {
+      productStock: {
+        findUnique: jest.fn().mockResolvedValueOnce(null),
+        create: jest.fn().mockResolvedValueOnce({
+          id: 'stock-1',
+          productId: 'product-1',
+          currentStock: new Decimal('0'),
+          minimumStock: new Decimal('0'),
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+        }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    const stock = await service.getOrCreateProductStockForUpdate(tx, 'product-1');
+
+    expect(stock.currentStock).toEqual(new Decimal('0'));
+  });
+
+  it('applySaleOut subtracts stock and creates a SALE_OUT movement', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const create = jest.fn().mockResolvedValue({
+      id: 'movement-1',
+      productId: 'product-1',
+      movementType: InventoryMovementType.SALE_OUT,
+      quantity: new Decimal('2'),
+      previousStock: new Decimal('5'),
+      newStock: new Decimal('3'),
+      reason: 'Sale ticket ticket-1 confirmation.',
+      referenceType: InventoryReferenceType.SALE_TICKET,
+      referenceId: 'ticket-1',
+      createdById: 'cashier-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      product: { name: 'Hamburguesa clasica' },
+    });
+    const tx = {
+      productStock: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'stock-1',
+          productId: 'product-1',
+          currentStock: new Decimal('5'),
+          minimumStock: new Decimal('0'),
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+        }),
+        create: jest.fn(),
+        update,
+      },
+      inventoryMovement: {
+        create,
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await service.applySaleOut(
+      {
+        productId: 'product-1',
+        quantity: 2,
+        reason: 'Sale ticket ticket-1 confirmation.',
+        referenceId: 'ticket-1',
+        createdById: 'cashier-1',
+      },
+      tx,
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      where: { productId: 'product-1' },
+      data: {
+        currentStock: new Decimal('3'),
+      },
+    });
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        productId: 'product-1',
+        movementType: InventoryMovementType.SALE_OUT,
+        quantity: new Decimal('2'),
+        previousStock: new Decimal('5'),
+        newStock: new Decimal('3'),
+        reason: 'Sale ticket ticket-1 confirmation.',
+        referenceType: InventoryReferenceType.SALE_TICKET,
+        referenceId: 'ticket-1',
+        createdById: 'cashier-1',
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('applySaleOut rejects insufficient stock without updating inventory', async () => {
+    const update = jest.fn();
+    const create = jest.fn();
+    const tx = {
+      productStock: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'stock-1',
+          productId: 'product-1',
+          currentStock: new Decimal('1'),
+          minimumStock: new Decimal('0'),
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+        }),
+        create: jest.fn(),
+        update,
+      },
+      inventoryMovement: {
+        create,
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await expect(
+      service.applySaleOut(
+        {
+          productId: 'product-1',
+          quantity: 2,
+          reason: 'Sale ticket ticket-1 confirmation.',
+          referenceId: 'ticket-1',
+          createdById: 'cashier-1',
+        },
+        tx,
+      ),
+    ).rejects.toThrow(ConflictException);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('applyVoidReversal adds stock and creates a VOID_REVERSAL movement', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const create = jest.fn().mockResolvedValue({
+      id: 'movement-1',
+      productId: 'product-1',
+      movementType: InventoryMovementType.VOID_REVERSAL,
+      quantity: new Decimal('2'),
+      previousStock: new Decimal('3'),
+      newStock: new Decimal('5'),
+      reason: 'Error de carga',
+      referenceType: InventoryReferenceType.SALE_VOID,
+      referenceId: 'ticket-1',
+      createdById: 'manager-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      product: { name: 'Hamburguesa clasica' },
+    });
+    const tx = {
+      productStock: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'stock-1',
+          productId: 'product-1',
+          currentStock: new Decimal('3'),
+          minimumStock: new Decimal('0'),
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+        }),
+        create: jest.fn(),
+        update,
+      },
+      inventoryMovement: {
+        create,
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    await service.applyVoidReversal(
+      {
+        productId: 'product-1',
+        quantity: 2,
+        reason: 'Error de carga',
+        referenceId: 'ticket-1',
+        createdById: 'manager-1',
+      },
+      tx,
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      where: { productId: 'product-1' },
+      data: {
+        currentStock: new Decimal('5'),
+      },
+    });
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        productId: 'product-1',
+        movementType: InventoryMovementType.VOID_REVERSAL,
+        quantity: new Decimal('2'),
+        previousStock: new Decimal('3'),
+        newStock: new Decimal('5'),
+        reason: 'Error de carga',
+        referenceType: InventoryReferenceType.SALE_VOID,
+        referenceId: 'ticket-1',
+        createdById: 'manager-1',
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
   });
 });

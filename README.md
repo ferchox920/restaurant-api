@@ -1,6 +1,6 @@
 # Restaurat API
 
-API administrativa para gestion operativa de restaurantes, orientada inicialmente a productos terminados, stock, costos historicos, precios por canal y tickets de venta con trazabilidad.
+API administrativa para gestion operativa de restaurantes, orientada inicialmente a productos terminados, stock, costos historicos, precios por canal y tickets de venta en borrador con trazabilidad.
 
 ## Objetivo del MVP
 
@@ -10,8 +10,8 @@ Construir una API backend que permita administrar la operacion comercial basica 
 - Control de stock basado en movimientos.
 - Costos historizados por producto.
 - Precios historizados por canal.
-- Tickets de venta con estados definidos.
-- Reversion de stock ante anulaciones.
+- Tickets de venta en borrador con snapshots historicos.
+- Reversion de stock ante anulaciones confirmadas como capacidad futura.
 - Trazabilidad de usuarios responsables y auditoria de acciones criticas.
 
 ## Alcance Actual
@@ -31,8 +31,7 @@ El alcance actual combina el diseno funcional del MVP con la implementacion tecn
 - Costos historicos por producto.
 - Precios historicos por producto y canal.
 - Inventario de producto finalizado mediante movimientos historicos y proyeccion de stock actual.
-
-Los tickets y ventas permanecen pendientes para los siguientes sprints.
+- Tickets de venta en estado `DRAFT` con lineas historicas y cancelacion sin impacto en stock.
 
 ## Funcionalidades Fuera del MVP
 
@@ -68,10 +67,10 @@ Quedan explicitamente fuera del MVP:
 4. Un usuario `CASHIER` crea un ticket en estado `DRAFT`.
 5. El sistema resuelve precio por canal y costo vigente del producto.
 6. El ticket conserva snapshots historicos de nombre, precio y costo.
-7. Al confirmar el ticket, el sistema valida stock suficiente.
-8. Si la validacion es correcta, genera movimientos `SALE_OUT`, descuenta stock y cambia el ticket a `CONFIRMED`.
-9. Si una venta confirmada se anula, el sistema genera `VOID_REVERSAL` y devuelve stock sin borrar el historial previo.
-10. El sistema permite consultar ventas, stock y movimientos con trazabilidad de usuario responsable.
+7. En Sprint 6 el ticket puede seguir en `DRAFT`, actualizarse o cancelarse sin afectar stock.
+8. En Sprint 7 el ticket puede confirmarse, descontar stock y generar `SALE_OUT`.
+9. En Sprint 7 una venta confirmada puede anularse y generar `VOID_REVERSAL`.
+10. El sistema permite consultar tickets draft, stock y movimientos con trazabilidad de usuario responsable.
 
 ## Stack Tecnologico Previsto
 
@@ -93,7 +92,8 @@ Sin implementacion todavia, el stack objetivo para Sprint 1 en adelante es:
 - `Sprint 3`: catalogo base con categorias, canales de venta y productos implementado.
 - `Sprint 4`: costos historicos por producto y precios historicos por producto/canal implementados.
 - `Sprint 5`: inventario de producto finalizado implementado.
-- La siguiente etapa prevista es incorporar tickets y ventas operativas.
+- `Sprint 6`: tickets de venta en borrador con snapshots historicos implementados.
+- `Sprint 7`: confirmacion de ventas y movimientos automaticos de inventario implementados.
 
 ## Sprint 3 - Catalogo de productos, categorias y canales
 
@@ -329,7 +329,7 @@ Minimum stock:
 - `ProductStock` es la proyeccion del stock actual.
 - `InventoryMovement` es el historial auditable.
 - No se permite stock negativo.
-- `SALE_OUT` y `VOID_REVERSAL` quedan reservados para sprints de ventas.
+- `SALE_OUT` y `VOID_REVERSAL` quedan reservados para flujos internos de ventas y no para operaciones manuales de inventario.
 
 ### Que queda pendiente para Sprint 6
 
@@ -339,6 +339,170 @@ Minimum stock:
 - Reversion por anulacion de venta.
 - Auditoria de negocio completa.
 - Insumos y recetas.
+
+## Sprint 6 - Tickets de venta en borrador y snapshots historicos
+
+Sprint 6 agrega tickets de venta en estado `DRAFT` y lineas con snapshots historicos de producto, precio y costo, sin afectar inventario.
+
+### Alcance implementado
+
+- Modelo `SaleTicket`.
+- Modelo `SaleTicketItem`.
+- Enum `SaleTicketStatus`.
+- Endpoints para crear, listar, consultar, actualizar y cancelar tickets `DRAFT`.
+- Endpoints para agregar, actualizar y eliminar items de ticket.
+- Snapshots historicos de nombre, SKU, unidad, precio y costo.
+- Tests unitarios de `SalesService` y metadata de `SalesController`.
+
+### Como correr migraciones de Sprint 6
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. La migracion versionada de Sprint 6 vive en `prisma/migrations/20260610000000_add_sale_tickets_draft/`.
+3. Ejecutar `npm run prisma:generate` para regenerar el cliente Prisma.
+4. Si la base local esta disponible y hace falta recrear la migracion en desarrollo, usar `npx prisma migrate dev --name add_sale_tickets_draft`.
+
+### Endpoints de tickets
+
+- `POST /api/sales/tickets`
+- `GET /api/sales/tickets`
+- `GET /api/sales/tickets/:ticketId`
+- `PATCH /api/sales/tickets/:ticketId`
+- `POST /api/sales/tickets/:ticketId/cancel`
+- `POST /api/sales/tickets/:ticketId/items`
+- `PATCH /api/sales/tickets/:ticketId/items/:itemId`
+- `DELETE /api/sales/tickets/:ticketId/items/:itemId`
+
+### Roles permitidos
+
+- Lectura: `ADMIN`, `MANAGER`, `CASHIER`, `AUDITOR`
+- Escritura sobre tickets `DRAFT`: `ADMIN`, `MANAGER`, `CASHIER`
+- `AUDITOR`: solo lectura
+
+### Ejemplos basicos
+
+Crear ticket:
+
+```json
+{
+  "salesChannelId": "0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4",
+  "notes": "Pedido por mostrador"
+}
+```
+
+Agregar item:
+
+```json
+{
+  "productId": "3d7784e2-9df7-4f8f-b3ec-799e271a5f5d",
+  "quantity": 2
+}
+```
+
+Cancelar ticket:
+
+```json
+{
+  "reason": "Cliente cancelo antes de confirmar"
+}
+```
+
+### Reglas importantes del Sprint 6
+
+- Los tickets se crean en `DRAFT`.
+- Los tickets `DRAFT` pueden modificarse.
+- Los tickets `DRAFT` pueden cancelarse.
+- Los tickets `CANCELLED` no pueden modificarse.
+- Cada linea guarda snapshots historicos.
+- El cliente no envia precio ni costo.
+- El servidor calcula precio, costo, subtotal y total.
+- Sprint 6 no descuenta stock.
+- Sprint 6 no confirma ventas.
+- Sprint 6 no genera `SALE_OUT`.
+- Sprint 6 no genera `VOID_REVERSAL`.
+- Sprint 6 no modifica `ProductStock`.
+
+### Que quedaba pendiente al cierre del Sprint 6
+
+- Confirmacion de venta.
+- Descuento automatico de stock.
+- Generacion de movimientos `SALE_OUT`.
+- Anulacion de ventas confirmadas y `VOID_REVERSAL`.
+- Auditoria de negocio completa.
+- Insumos y recetas.
+
+## Sprint 7 - Confirmacion de ventas y movimientos de inventario
+
+Sprint 7 incorpora la confirmacion de tickets de venta, el descuento automatico de stock para productos inventariables y la anulacion de ventas confirmadas con reversion de inventario.
+
+### Alcance implementado
+
+- Campos de confirmacion y void en `SaleTicket`.
+- Confirmacion de tickets `DRAFT`.
+- Validacion de stock suficiente antes de confirmar.
+- Descuento de stock para productos `FINISHED_PRODUCT`.
+- Generacion de movimientos `SALE_OUT`.
+- Anulacion de tickets `CONFIRMED`.
+- Reversion de stock mediante `VOID_REVERSAL`.
+- Reutilizacion de `InventoryService` dentro de la misma transaccion Prisma de ventas.
+- Tests unitarios ampliados para ventas, inventario interno y metadata de controller.
+
+### Como correr migraciones de Sprint 7
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. La migracion versionada de Sprint 7 vive en `prisma/migrations/20260610010000_add_sale_ticket_confirmation_and_void_fields/`.
+3. Ejecutar `npm run prisma:generate` para regenerar el cliente Prisma.
+4. Si la base local esta disponible y hace falta aplicar migraciones en desarrollo, usar `npx prisma migrate dev --name add_sale_ticket_confirmation_and_void_fields`.
+
+### Endpoints agregados
+
+- `POST /api/sales/tickets/:ticketId/confirm`
+- `POST /api/sales/tickets/:ticketId/void`
+
+### Roles permitidos
+
+- Confirmar ticket: `ADMIN`, `MANAGER`, `CASHIER`
+- Anular venta confirmada: `ADMIN`, `MANAGER`
+- `AUDITOR`: solo lectura
+
+### Ejemplos basicos
+
+Confirmar ticket:
+
+```json
+{}
+```
+
+Anular venta confirmada:
+
+```json
+{
+  "reason": "Error de carga"
+}
+```
+
+### Reglas importantes del Sprint 7
+
+- Confirmar ticket descuenta stock.
+- Confirmar ticket genera `SALE_OUT`.
+- Anular venta confirmada revierte stock.
+- Anular venta confirmada genera `VOID_REVERSAL`.
+- Cancelar `DRAFT` y anular `CONFIRMED` son operaciones distintas.
+- `SALE_OUT` y `VOID_REVERSAL` no se crean manualmente desde endpoints de inventario.
+- No hay reembolsos ni anulaciones parciales.
+- No hay pagos ni caja.
+- No hay auditoria completa.
+- No hay insumos ni recetas.
+
+### Que queda pendiente para Sprint 8
+
+- reembolsos;
+- anulaciones parciales;
+- pagos;
+- caja diaria;
+- auditoria completa;
+- insumos y recetas;
+- proveedores y compras;
+- reportes avanzados.
 
 ## Sprint 2 - Usuarios, autenticacion y roles
 

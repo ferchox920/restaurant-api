@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ProductsModule } from './products/products.module';
+import { SalesModule } from './sales/sales.module';
 import { SalesChannelsModule } from './sales-channels/sales-channels.module';
 import { UsersModule } from './users/users.module';
 
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     CategoriesModule,
     SalesChannelsModule,
     ProductsModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
