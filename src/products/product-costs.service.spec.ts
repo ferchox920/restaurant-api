@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { ProductCostsService } from './product-costs.service';
 
@@ -17,6 +18,9 @@ describe('ProductCostsService', () => {
       create: jest.Mock;
     };
   };
+  let auditService: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaService = {
@@ -31,9 +35,13 @@ describe('ProductCostsService', () => {
         create: jest.fn(),
       },
     };
+    auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new ProductCostsService(
       prismaService as unknown as PrismaService,
+      auditService as unknown as AuditService,
     );
   });
 
@@ -235,6 +243,45 @@ describe('ProductCostsService', () => {
 
     await expect(service.findHistory('missing-product')).rejects.toThrow(
       NotFoundException,
+    );
+  });
+
+  it('writes the audit log inside the same transaction when creating a cost', async () => {
+    const tx = {
+      productCostHistory: {
+        findFirst: jest.fn().mockResolvedValueOnce(null),
+        update: jest.fn(),
+        create: jest.fn().mockResolvedValueOnce({
+          id: 'cost-1',
+          productId: 'product-1',
+          cost: new Decimal('3000'),
+          validFrom: new Date('2026-06-09T00:00:00.000Z'),
+          validTo: null,
+          createdById: 'manager-1',
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+        }),
+      },
+    };
+
+    prismaService.product.findUnique.mockResolvedValueOnce({
+      id: 'product-1',
+      active: true,
+    });
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    await service.create('product-1', { cost: 3000 }, 'manager-1');
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        entityId: 'cost-1',
+        metadata: {
+          productId: 'product-1',
+        },
+      }),
+      tx,
     );
   });
 });

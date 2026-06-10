@@ -135,8 +135,9 @@ export class SalesController {
   update(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Body() dto: UpdateSaleTicketDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.update(ticketId, dto);
+    return this.salesService.update(ticketId, dto, user.id);
   }
 
   @Post(':ticketId/items')
@@ -164,8 +165,9 @@ export class SalesController {
   addItem(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Body() dto: AddSaleTicketItemDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.addItem(ticketId, dto);
+    return this.salesService.addItem(ticketId, dto, user.id);
   }
 
   @Patch(':ticketId/items/:itemId')
@@ -192,8 +194,9 @@ export class SalesController {
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
     @Body() dto: UpdateSaleTicketItemDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.updateItem(ticketId, itemId, dto);
+    return this.salesService.updateItem(ticketId, itemId, dto, user.id);
   }
 
   @Delete(':ticketId/items/:itemId')
@@ -218,8 +221,9 @@ export class SalesController {
   removeItem(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.removeItem(ticketId, itemId);
+    return this.salesService.removeItem(ticketId, itemId, user.id);
   }
 
   @Post(':ticketId/cancel')

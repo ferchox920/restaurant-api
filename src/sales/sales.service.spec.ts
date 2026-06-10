@@ -1,5 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { AuditAction, AuditEntityType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { StockManagementType } from '../products/product.enums';
@@ -45,6 +47,9 @@ describe('SalesService', () => {
   let inventoryService: {
     applySaleOut: jest.Mock;
     applyVoidReversal: jest.Mock;
+  };
+  let auditService: {
+    log: jest.Mock;
   };
   let prismaService: {
     $transaction: jest.Mock;
@@ -92,13 +97,28 @@ describe('SalesService', () => {
     };
 
     inventoryService = {
-      applySaleOut: jest.fn(),
-      applyVoidReversal: jest.fn(),
+      applySaleOut: jest.fn().mockResolvedValue({
+        id: 'movement-default-sale-out',
+        productId: 'product-1',
+        quantity: new Decimal('2'),
+        movementType: 'SALE_OUT',
+      }),
+      applyVoidReversal: jest.fn().mockResolvedValue({
+        id: 'movement-default-void-reversal',
+        productId: 'product-1',
+        quantity: new Decimal('2'),
+        movementType: 'VOID_REVERSAL',
+      }),
+    };
+
+    auditService = {
+      log: jest.fn(),
     };
 
     service = new SalesService(
       prismaService as unknown as PrismaService,
       inventoryService as unknown as InventoryService,
+      auditService as unknown as AuditService,
     );
   });
 
@@ -234,6 +254,16 @@ describe('SalesService', () => {
     expect(result.createdById).toBe('cashier-1');
     expect(result.subtotal).toBe('0');
     expect(result.total).toBe('0');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'cashier-1',
+        action: AuditAction.SALE_TICKET_CREATED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: 'ticket-1',
+        beforeData: null,
+      }),
+      expect.anything(),
+    );
   });
 
   it('rejects ticket creation for nonexistent sales channels', async () => {
@@ -335,9 +365,26 @@ describe('SalesService', () => {
 
     const result = await service.update('ticket-1', {
       notes: 'Cliente pide sin cebolla',
-    });
+    }, 'manager-1');
 
     expect(result.notes).toBe('Cliente pide sin cebolla');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        action: AuditAction.SALE_TICKET_UPDATED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: 'ticket-1',
+        beforeData: expect.objectContaining({
+          id: 'ticket-1',
+          status: 'DRAFT',
+        }),
+        afterData: expect.objectContaining({
+          id: 'ticket-1',
+          notes: 'Cliente pide sin cebolla',
+        }),
+      }),
+      expect.anything(),
+    );
   });
 
   it('rejects modifications on cancelled tickets', async () => {
@@ -397,6 +444,19 @@ describe('SalesService', () => {
     expect(result.cancelledById).toBe('cashier-1');
     expect(result.cancellationReason).toBe('Cliente desistio');
     expect(result.cancelledAt).toEqual(new Date('2026-06-09T03:10:00.000Z'));
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'cashier-1',
+        action: AuditAction.SALE_TICKET_CANCELLED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: 'ticket-1',
+        afterData: expect.objectContaining({
+          status: 'CANCELLED',
+          cancellationReason: 'Cliente desistio',
+        }),
+      }),
+      expect.anything(),
+    );
   });
 
   it('does not touch inventory state when cancelling a draft ticket', async () => {
@@ -420,6 +480,12 @@ describe('SalesService', () => {
   });
 
   it('confirms a draft ticket, delegates stock movement and stores confirmation metadata', async () => {
+    inventoryService.applySaleOut.mockResolvedValueOnce({
+      id: 'movement-1',
+      productId: 'product-1',
+      quantity: new Decimal('2'),
+      movementType: 'SALE_OUT',
+    });
     const tx = makeDraftTx({
       salesChannel: {
         findUnique: jest.fn().mockResolvedValueOnce({
@@ -463,6 +529,25 @@ describe('SalesService', () => {
     );
     expect(result.status).toBe('CONFIRMED');
     expect(result.confirmedById).toBe('cashier-1');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'cashier-1',
+        action: AuditAction.SALE_TICKET_CONFIRMED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: 'ticket-1',
+        metadata: {
+          inventoryMovements: [
+            {
+              id: 'movement-1',
+              productId: 'product-1',
+              quantity: '2',
+              movementType: 'SALE_OUT',
+            },
+          ],
+        },
+      }),
+      tx,
+    );
   });
 
   it('rejects confirmation when a draft ticket has no items', async () => {
@@ -481,6 +566,7 @@ describe('SalesService', () => {
       ConflictException,
     );
     expect(inventoryService.applySaleOut).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
   });
 
   it('rejects confirmation for nonexistent tickets', async () => {
@@ -577,6 +663,7 @@ describe('SalesService', () => {
       ConflictException,
     );
     expect(tx.saleTicket.update).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
   });
 
   it('preserves item snapshots when confirming a ticket', async () => {
@@ -735,6 +822,12 @@ describe('SalesService', () => {
   });
 
   it('voids a confirmed ticket, delegates reversal and stores void metadata', async () => {
+    inventoryService.applyVoidReversal.mockResolvedValueOnce({
+      id: 'movement-2',
+      productId: 'product-1',
+      quantity: new Decimal('2'),
+      movementType: 'VOID_REVERSAL',
+    });
     const tx = makeDraftTx({
       saleTicket: {
         findUnique: jest
@@ -780,6 +873,26 @@ describe('SalesService', () => {
     expect(result.status).toBe('VOIDED');
     expect(result.voidedById).toBe('manager-1');
     expect(result.voidReason).toBe('Error de carga');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        action: AuditAction.SALE_TICKET_VOIDED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: 'ticket-1',
+        metadata: {
+          inventoryMovements: [
+            {
+              id: 'movement-2',
+              productId: 'product-1',
+              quantity: '2',
+              movementType: 'VOID_REVERSAL',
+            },
+          ],
+          reason: 'Error de carga',
+        },
+      }),
+      tx,
+    );
   });
 
   it('does not touch inventory for NON_STOCKED items when voiding a confirmed ticket', async () => {
@@ -920,6 +1033,7 @@ describe('SalesService', () => {
       service.void('ticket-1', { reason: 'Error de carga' }, 'manager-1'),
     ).rejects.toThrow(ConflictException);
     expect(tx.saleTicket.update).not.toHaveBeenCalled();
+    expect(auditService.log).not.toHaveBeenCalled();
   });
 
   it('adds an item with snapshots and recalculates totals', async () => {
@@ -1021,6 +1135,17 @@ describe('SalesService', () => {
     expect(result.items[0]?.unitPriceSnapshot).toBe('5999.99');
     expect(result.items[0]?.unitCostSnapshot).toBe('2500');
     expect(result.total).toBe('11999.98');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.SALE_TICKET_ITEM_ADDED,
+        entityType: AuditEntityType.SALE_TICKET_ITEM,
+        beforeData: null,
+        metadata: expect.objectContaining({
+          ticketId: 'ticket-1',
+        }),
+      }),
+      tx,
+    );
   });
 
   it('rejects nonexistent products when adding items', async () => {
@@ -1298,6 +1423,21 @@ describe('SalesService', () => {
       },
     });
     expect(result.total).toBe('17999.97');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.SALE_TICKET_ITEM_ADDED,
+        entityId: 'item-1',
+        beforeData: expect.objectContaining({
+          id: 'item-1',
+          quantity: '1',
+        }),
+        afterData: expect.objectContaining({
+          id: 'item-1',
+          quantity: '3',
+        }),
+      }),
+      tx,
+    );
   });
 
   it('updates an item quantity and recalculates totals', async () => {
@@ -1342,9 +1482,25 @@ describe('SalesService', () => {
 
     const result = await service.updateItem('ticket-1', 'item-1', {
       quantity: 3,
-    });
+    }, 'manager-1');
 
     expect(result.total).toBe('17999.97');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        action: AuditAction.SALE_TICKET_ITEM_UPDATED,
+        entityType: AuditEntityType.SALE_TICKET_ITEM,
+        entityId: 'item-1',
+        beforeData: expect.objectContaining({
+          id: 'item-1',
+        }),
+        afterData: expect.objectContaining({
+          id: 'item-1',
+          quantity: '3',
+        }),
+      }),
+      tx,
+    );
   });
 
   it('preserves snapshot price and cost when updating quantity', async () => {
@@ -1460,9 +1616,22 @@ describe('SalesService', () => {
       callback(tx),
     );
 
-    const result = await service.removeItem('ticket-1', 'item-1');
+    const result = await service.removeItem('ticket-1', 'item-1', 'manager-1');
 
     expect(result.total).toBe('0');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        action: AuditAction.SALE_TICKET_ITEM_REMOVED,
+        entityType: AuditEntityType.SALE_TICKET_ITEM,
+        entityId: 'item-1',
+        afterData: null,
+        metadata: expect.objectContaining({
+          ticketId: 'ticket-1',
+        }),
+      }),
+      tx,
+    );
   });
 
   it('rejects item deletions when the ticket is not in DRAFT', async () => {

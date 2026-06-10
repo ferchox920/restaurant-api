@@ -338,7 +338,8 @@ export class InventoryController {
   updateMinimumStock(
     @Param('productId', new ParseUUIDPipe()) productId: string,
     @Body() dto: UpdateMinimumStockDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<InventoryStockResponseDto> {
-    return this.inventoryService.updateMinimumStock(productId, dto);
+    return this.inventoryService.updateMinimumStock(productId, dto, user.id);
   }
 }

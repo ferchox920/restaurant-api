@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { ProductPricesService } from './product-prices.service';
 
@@ -18,6 +19,9 @@ describe('ProductPricesService', () => {
       findMany: jest.Mock;
     };
   };
+  let auditService: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaService = {
@@ -33,9 +37,13 @@ describe('ProductPricesService', () => {
         findMany: jest.fn(),
       },
     };
+    auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new ProductPricesService(
       prismaService as unknown as PrismaService,
+      auditService as unknown as AuditService,
     );
   });
 
@@ -406,5 +414,57 @@ describe('ProductPricesService', () => {
     await expect(
       service.findHistory('product-1', 'missing-channel'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('writes the audit log inside the same transaction when creating a price', async () => {
+    const tx = {
+      productPriceHistory: {
+        findFirst: jest.fn().mockResolvedValueOnce(null),
+        update: jest.fn(),
+        create: jest.fn().mockResolvedValueOnce({
+          id: 'price-1',
+          productId: 'product-1',
+          salesChannelId: 'channel-1',
+          price: new Decimal('7000'),
+          validFrom: new Date('2026-06-09T00:00:00.000Z'),
+          validTo: null,
+          createdById: 'manager-1',
+          createdAt: new Date('2026-06-09T00:00:00.000Z'),
+          salesChannel: {
+            name: 'Mostrador',
+          },
+        }),
+      },
+    };
+
+    prismaService.product.findUnique.mockResolvedValueOnce({
+      id: 'product-1',
+      active: true,
+    });
+    prismaService.salesChannel.findUnique.mockResolvedValueOnce({
+      id: 'channel-1',
+      active: true,
+    });
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    await service.create(
+      'product-1',
+      { salesChannelId: 'channel-1', price: 7000 },
+      'manager-1',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        entityId: 'price-1',
+        metadata: {
+          productId: 'product-1',
+          salesChannelId: 'channel-1',
+        },
+      }),
+      tx,
+    );
   });
 });

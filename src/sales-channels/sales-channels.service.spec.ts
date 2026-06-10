@@ -3,6 +3,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { CommissionType } from './sales-channel.enums';
 import { SalesChannelsService } from './sales-channels.service';
@@ -10,6 +11,7 @@ import { SalesChannelsService } from './sales-channels.service';
 describe('SalesChannelsService', () => {
   let service: SalesChannelsService;
   let prismaService: {
+    $transaction: jest.Mock;
     salesChannel: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -17,9 +19,13 @@ describe('SalesChannelsService', () => {
       update: jest.Mock;
     };
   };
+  let auditService: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaService = {
+      $transaction: jest.fn(),
       salesChannel: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -27,9 +33,13 @@ describe('SalesChannelsService', () => {
         update: jest.fn(),
       },
     };
+    auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new SalesChannelsService(
       prismaService as unknown as PrismaService,
+      auditService as unknown as AuditService,
     );
   });
 
@@ -196,5 +206,45 @@ describe('SalesChannelsService', () => {
       data: { active: true },
     });
     expect(result.active).toBe(true);
+  });
+
+  it('creates an audit log when creating a sales channel', async () => {
+    prismaService.salesChannel.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(prismaService),
+    );
+    prismaService.salesChannel.create.mockResolvedValueOnce({
+      id: 'channel-1',
+      name: 'Mostrador',
+      code: 'COUNTER',
+      description: null,
+      commissionType: CommissionType.NONE,
+      commissionValue: new Decimal(0),
+      active: true,
+      createdById: 'manager-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+    });
+
+    await service.create(
+      {
+        name: 'Mostrador',
+        code: 'COUNTER',
+      },
+      'manager-1',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        entityId: 'channel-1',
+        afterData: expect.objectContaining({
+          code: 'COUNTER',
+        }),
+      }),
+      prismaService,
+    );
   });
 });

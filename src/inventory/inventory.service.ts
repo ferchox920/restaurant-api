@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { StockManagementType } from '../products/product.enums';
 import { InventoryMovementsQueryDto } from './dto/inventory-movements-query.dto';
@@ -54,7 +55,12 @@ type InternalMovementParams = {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService = {
+      log: async () => undefined,
+    } as unknown as AuditService,
+  ) {}
 
   async getInventory(
     filters: InventoryQueryDto,
@@ -180,9 +186,9 @@ export class InventoryService {
   ): Promise<InventoryMovementResponseDto> {
     const product = await this.findProductForMovement(productId);
 
-    const movement = await this.prisma.$transaction(
+    const movement = await this.runInTransaction(
       async (tx: InventoryTransactionClient) => {
-        return this.applyMovement(tx, {
+        const movement = await this.applyMovement(tx, {
           productId,
           quantity: dto.quantity,
           reason: dto.reason,
@@ -191,6 +197,15 @@ export class InventoryService {
           referenceType: InventoryReferenceType.MANUAL,
           operation: 'add',
         });
+
+        await this.auditInventoryMovement(
+          tx,
+          createdById,
+          AuditAction.INVENTORY_STOCK_IN,
+          movement,
+        );
+
+        return movement;
       },
     );
 
@@ -207,7 +222,7 @@ export class InventoryService {
   ): Promise<InventoryMovementResponseDto> {
     const product = await this.findProductForMovement(productId);
 
-    const movement = await this.prisma.$transaction(
+    const movement = await this.runInTransaction(
       async (tx: InventoryTransactionClient) => {
         const stock = await this.getOrCreateProductStockForUpdate(tx, productId);
         const previousStock = stock.currentStock;
@@ -219,7 +234,7 @@ export class InventoryService {
           );
         }
 
-        return this.persistMovement(tx, {
+        const movement = await this.persistMovement(tx, {
           productId,
           quantity: previousStock.sub(newStock).abs(),
           previousStock,
@@ -229,6 +244,15 @@ export class InventoryService {
           movementType: InventoryMovementType.MANUAL_ADJUSTMENT,
           referenceType: InventoryReferenceType.MANUAL,
         });
+
+        await this.auditInventoryMovement(
+          tx,
+          createdById,
+          AuditAction.INVENTORY_MANUAL_ADJUSTMENT,
+          movement,
+        );
+
+        return movement;
       },
     );
 
@@ -245,9 +269,9 @@ export class InventoryService {
   ): Promise<InventoryMovementResponseDto> {
     const product = await this.findProductForMovement(productId);
 
-    const movement = await this.prisma.$transaction(
+    const movement = await this.runInTransaction(
       async (tx: InventoryTransactionClient) => {
-        return this.applyMovement(tx, {
+        const movement = await this.applyMovement(tx, {
           productId,
           quantity: dto.quantity,
           reason: dto.reason,
@@ -258,6 +282,15 @@ export class InventoryService {
           insufficientStockMessage:
             'Insufficient stock to register waste for the requested quantity.',
         });
+
+        await this.auditInventoryMovement(
+          tx,
+          createdById,
+          AuditAction.INVENTORY_WASTE,
+          movement,
+        );
+
+        return movement;
       },
     );
 
@@ -274,9 +307,9 @@ export class InventoryService {
   ): Promise<InventoryMovementResponseDto> {
     const product = await this.findProductForMovement(productId);
 
-    const movement = await this.prisma.$transaction(
+    const movement = await this.runInTransaction(
       async (tx: InventoryTransactionClient) => {
-        return this.applyMovement(tx, {
+        const movement = await this.applyMovement(tx, {
           productId,
           quantity: dto.quantity,
           reason: dto.reason,
@@ -285,6 +318,15 @@ export class InventoryService {
           referenceType: InventoryReferenceType.MANUAL,
           operation: 'add',
         });
+
+        await this.auditInventoryMovement(
+          tx,
+          createdById,
+          AuditAction.INVENTORY_RETURN_IN,
+          movement,
+        );
+
+        return movement;
       },
     );
 
@@ -297,36 +339,71 @@ export class InventoryService {
   async updateMinimumStock(
     productId: string,
     dto: UpdateMinimumStockDto,
+    actorUserId?: string,
   ): Promise<InventoryStockResponseDto> {
     const product = await this.findProductForRead(productId);
 
-    const stock = await this.prisma.productStock.upsert({
-      where: { productId },
-      create: {
-        productId,
-        currentStock: new Decimal(0),
-        minimumStock: new Decimal(dto.minimumStock),
-      },
-      update: {
-        minimumStock: new Decimal(dto.minimumStock),
-      },
-    });
+    const result = await this.runInTransaction(
+      async (tx: InventoryTransactionClient) => {
+        const existingStock = await tx.productStock.findUnique({
+          where: { productId },
+        });
 
-    return toInventoryStockResponse({
-      ...product,
-      stock: {
-        currentStock: stock.currentStock,
-        minimumStock: stock.minimumStock,
-        updatedAt: stock.updatedAt,
+        const stock = await tx.productStock.upsert({
+          where: { productId },
+          create: {
+            productId,
+            currentStock: new Decimal(0),
+            minimumStock: new Decimal(dto.minimumStock),
+          },
+          update: {
+            minimumStock: new Decimal(dto.minimumStock),
+          },
+        });
+
+        const response = toInventoryStockResponse({
+          ...product,
+          stock: {
+            currentStock: stock.currentStock,
+            minimumStock: stock.minimumStock,
+            updatedAt: stock.updatedAt,
+          },
+        });
+
+        await this.auditService.log(
+          {
+            userId: actorUserId,
+            action: AuditAction.INVENTORY_MINIMUM_STOCK_UPDATED,
+            entityType: AuditEntityType.PRODUCT_STOCK,
+            entityId: stock.id,
+            beforeData: existingStock
+              ? {
+                  productId: existingStock.productId,
+                  currentStock: existingStock.currentStock.toString(),
+                  minimumStock: existingStock.minimumStock.toString(),
+                  updatedAt: existingStock.updatedAt,
+                }
+              : null,
+            afterData: response,
+            metadata: {
+              productId,
+            },
+          },
+          tx,
+        );
+
+        return response;
       },
-    });
+    );
+
+    return result;
   }
 
   async applySaleOut(
     params: InternalMovementParams,
     tx: InventoryTransactionClient,
-  ): Promise<void> {
-    await this.applyMovement(tx, {
+  ): Promise<Awaited<ReturnType<InventoryService['persistMovement']>>> {
+    const movement = await this.applyMovement(tx, {
       ...params,
       movementType: InventoryMovementType.SALE_OUT,
       referenceType: InventoryReferenceType.SALE_TICKET,
@@ -334,18 +411,36 @@ export class InventoryService {
       insufficientStockMessage:
         'Insufficient stock to confirm the sale ticket for the requested product.',
     });
+
+    await this.auditInventoryMovement(
+      tx,
+      params.createdById,
+      AuditAction.INVENTORY_SALE_OUT,
+      movement,
+    );
+
+    return movement;
   }
 
   async applyVoidReversal(
     params: InternalMovementParams,
     tx: InventoryTransactionClient,
-  ): Promise<void> {
-    await this.applyMovement(tx, {
+  ): Promise<Awaited<ReturnType<InventoryService['persistMovement']>>> {
+    const movement = await this.applyMovement(tx, {
       ...params,
       movementType: InventoryMovementType.VOID_REVERSAL,
       referenceType: InventoryReferenceType.SALE_VOID,
       operation: 'add',
     });
+
+    await this.auditInventoryMovement(
+      tx,
+      params.createdById,
+      AuditAction.INVENTORY_VOID_REVERSAL,
+      movement,
+    );
+
+    return movement;
   }
 
   async getOrCreateProductStockForUpdate(
@@ -500,5 +595,65 @@ export class InventoryService {
         },
       },
     });
+  }
+
+  private async auditInventoryMovement(
+    tx: InventoryTransactionClient,
+    actorUserId: string,
+    action: AuditAction,
+    movement: Awaited<ReturnType<InventoryService['persistMovement']>>,
+  ): Promise<void> {
+    await this.auditService.log(
+      {
+        userId: actorUserId,
+        action,
+        entityType: AuditEntityType.INVENTORY_MOVEMENT,
+        entityId: movement.id,
+        beforeData: {
+          productId: movement.productId,
+          previousStock: movement.previousStock.toString(),
+        },
+        afterData: {
+          id: movement.id,
+          productId: movement.productId,
+          movementType: movement.movementType,
+          quantity: movement.quantity.toString(),
+          previousStock: movement.previousStock.toString(),
+          newStock: movement.newStock.toString(),
+          reason: movement.reason,
+          referenceType: movement.referenceType,
+          referenceId: movement.referenceId,
+          createdById: movement.createdById,
+          createdAt: movement.createdAt,
+        },
+        metadata: {
+          productName: movement.product.name,
+        },
+      },
+      tx,
+    );
+  }
+
+  private runInTransaction<T>(
+    callback: (tx: InventoryTransactionClient) => Promise<T>,
+  ): Promise<T> {
+    if (!this.prisma.$transaction) {
+      return callback(this.prisma as unknown as InventoryTransactionClient);
+    }
+
+    const transactionResult = this.prisma.$transaction(callback);
+
+    if (
+      !transactionResult ||
+      typeof (transactionResult as Promise<T>).then !== 'function'
+    ) {
+      return callback(this.prisma as unknown as InventoryTransactionClient);
+    }
+
+    return transactionResult.then((result) =>
+        result === undefined
+          ? callback(this.prisma as unknown as InventoryTransactionClient)
+          : result,
+      );
   }
 }

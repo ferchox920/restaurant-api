@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { ProductUnit, StockManagementType } from './product.enums';
 import { ProductsService } from './products.service';
@@ -10,6 +11,7 @@ import { ProductsService } from './products.service';
 describe('ProductsService', () => {
   let service: ProductsService;
   let prismaService: {
+    $transaction: jest.Mock;
     product: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -20,9 +22,13 @@ describe('ProductsService', () => {
       findUnique: jest.Mock;
     };
   };
+  let auditService: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaService = {
+      $transaction: jest.fn(),
       product: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -33,8 +39,14 @@ describe('ProductsService', () => {
         findUnique: jest.fn(),
       },
     };
+    auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
 
-    service = new ProductsService(prismaService as unknown as PrismaService);
+    service = new ProductsService(
+      prismaService as unknown as PrismaService,
+      auditService as unknown as AuditService,
+    );
   });
 
   it('creates a product without stock', async () => {
@@ -271,5 +283,44 @@ describe('ProductsService', () => {
       data: { active: true },
     });
     expect(result.active).toBe(true);
+  });
+
+  it('creates an audit log when creating a product', async () => {
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(prismaService),
+    );
+    prismaService.product.create.mockResolvedValueOnce({
+      id: 'product-1',
+      name: 'Hamburguesa clasica',
+      description: null,
+      sku: null,
+      categoryId: null,
+      unit: ProductUnit.UNIT,
+      stockManagementType: StockManagementType.FINISHED_PRODUCT,
+      active: true,
+      createdById: 'manager-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+    });
+
+    await service.create(
+      {
+        name: 'Hamburguesa clasica',
+        unit: ProductUnit.UNIT,
+      },
+      'manager-1',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        entityId: 'product-1',
+        beforeData: null,
+        afterData: expect.objectContaining({
+          name: 'Hamburguesa clasica',
+        }),
+      }),
+      prismaService,
+    );
   });
 });

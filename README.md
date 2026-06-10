@@ -94,6 +94,119 @@ Sin implementacion todavia, el stack objetivo para Sprint 1 en adelante es:
 - `Sprint 5`: inventario de producto finalizado implementado.
 - `Sprint 6`: tickets de venta en borrador con snapshots historicos implementados.
 - `Sprint 7`: confirmacion de ventas y movimientos automaticos de inventario implementados.
+- `Sprint 8`: auditoria general del sistema implementada con logs consultables y sanitizacion de datos sensibles.
+
+## Sprint 8 - Auditoria general del sistema
+
+Sprint 8 agrega una capa transversal de auditoria para acciones criticas de usuarios, catalogo, costos, precios, inventario y ventas.
+
+### Como ejecutar migraciones
+
+1. Verificar que `.env` tenga una `DATABASE_URL` valida.
+2. Aplicar la migracion versionada de Sprint 8 ubicada en `prisma/migrations/20260610020000_add_audit_logs/`.
+3. Ejecutar `npm run prisma:generate` para regenerar Prisma Client.
+
+### Endpoints de auditoria
+
+- `GET /api/audit-logs`
+- `GET /api/audit-logs/:id`
+
+### Roles permitidos
+
+- `ADMIN`
+- `AUDITOR`
+
+`MANAGER` y `CASHIER` no tienen acceso a consulta general de auditoria en Sprint 8.
+
+### Ejemplos basicos
+
+Consultar logs recientes:
+
+```text
+GET /api/audit-logs?limit=20&offset=0
+```
+
+Filtrar por entidad:
+
+```text
+GET /api/audit-logs?entityType=SALE_TICKET&entityId=ticket-1
+```
+
+Filtrar por usuario y fecha:
+
+```text
+GET /api/audit-logs?userId=user-1&from=2026-06-01T00:00:00.000Z&to=2026-06-10T23:59:59.999Z
+```
+
+### Que queda pendiente para Sprint 9
+
+- reportes operativos y financieros;
+- pagos y caja;
+- reembolsos y anulaciones parciales;
+- insumos, recetas, proveedores y compras;
+- multi-sucursal.
+
+## Sprint 9 - Reportes basicos operativos
+
+Sprint 9 agrega endpoints de reportes operativos para consultar stock actual, ventas confirmadas y movimientos de inventario sin modificar datos existentes.
+
+### Endpoints disponibles
+
+- `GET /api/reports/stock`
+- `GET /api/reports/sales-by-channel`
+- `GET /api/reports/sales-by-product`
+- `GET /api/reports/sales-by-user`
+- `GET /api/reports/inventory-movements`
+
+### Roles permitidos
+
+- `ADMIN`
+- `MANAGER`
+- `AUDITOR`
+
+`CASHIER` mantiene acceso a endpoints operativos previos de inventario y ventas segun permisos existentes, pero no accede a reportes generales.
+
+### Reglas importantes
+
+- Todos los endpoints requieren JWT.
+- Los reportes de ventas usan snapshots historicos de `SaleTicketItem`.
+- Los reportes de ventas usan solo tickets `CONFIRMED` por defecto.
+- `DRAFT`, `CANCELLED` y `VOIDED` no cuentan como ventas activas por defecto.
+- El reporte de stock usa `ProductStock` y fallback a `0`.
+- El reporte de movimientos usa `InventoryMovement`, ordenado por `createdAt desc`.
+- Los reportes devuelven decimales como `string`.
+- Los reportes no modifican datos ni crean audit logs por lectura.
+
+### Ejemplos basicos
+
+Consultar stock disponible:
+
+```text
+GET /api/reports/stock?active=true&stockStatus=AVAILABLE
+```
+
+Consultar ventas confirmadas por canal en rango:
+
+```text
+GET /api/reports/sales-by-channel?from=2026-06-01T00:00:00.000Z&to=2026-06-10T23:59:59.999Z
+```
+
+Consultar movimientos de inventario con paginacion:
+
+```text
+GET /api/reports/inventory-movements?movementType=SALE_OUT&limit=50&offset=0
+```
+
+### Que queda pendiente para Sprint 10
+
+- resumen agregado opcional para movimientos de inventario;
+- exportacion Excel/PDF;
+- dashboard visual;
+- pagos y caja;
+- facturacion fiscal;
+- reportes financieros avanzados;
+- reembolsos y anulaciones parciales;
+- insumos, recetas, proveedores, compras y multi-sucursal.
 
 ## Sprint 3 - Catalogo de productos, categorias y canales
 

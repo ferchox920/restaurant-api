@@ -153,8 +153,9 @@ export class SalesChannelsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateSalesChannelDto: UpdateSalesChannelDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SalesChannelResponseDto> {
-    return this.salesChannelsService.update(id, updateSalesChannelDto);
+    return this.salesChannelsService.update(id, updateSalesChannelDto, user.id);
   }
 
   @Patch(':id/deactivate')
@@ -180,8 +181,9 @@ export class SalesChannelsController {
   })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SalesChannelResponseDto> {
-    return this.salesChannelsService.deactivate(id);
+    return this.salesChannelsService.deactivate(id, user.id);
   }
 
   @Patch(':id/reactivate')
@@ -207,8 +209,9 @@ export class SalesChannelsController {
   })
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SalesChannelResponseDto> {
-    return this.salesChannelsService.reactivate(id);
+    return this.salesChannelsService.reactivate(id, user.id);
   }
 
   private parseActiveFilter(active?: string): boolean | undefined {

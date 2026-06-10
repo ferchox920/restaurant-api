@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { toProductResponse } from './product-response.mapper';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -14,7 +16,12 @@ import { StockManagementType } from './product.enums';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService = {
+      log: async () => undefined,
+    } as unknown as AuditService,
+  ) {}
 
   async create(
     createProductDto: CreateProductDto,
@@ -30,19 +37,37 @@ export class ProductsService {
 
     this.validateStockManagementType(createProductDto.stockManagementType);
 
-    const product = await this.prisma.product.create({
-      data: {
-        name: createProductDto.name,
-        description: createProductDto.description ?? null,
-        sku: createProductDto.sku ?? null,
-        categoryId: createProductDto.categoryId ?? null,
-        unit: createProductDto.unit,
-        stockManagementType:
-          createProductDto.stockManagementType ??
-          StockManagementType.FINISHED_PRODUCT,
-        createdById,
+    const product = await this.runInTransaction(
+      async (tx: Prisma.TransactionClient) => {
+        const createdProduct = await tx.product.create({
+          data: {
+            name: createProductDto.name,
+            description: createProductDto.description ?? null,
+            sku: createProductDto.sku ?? null,
+            categoryId: createProductDto.categoryId ?? null,
+            unit: createProductDto.unit,
+            stockManagementType:
+              createProductDto.stockManagementType ??
+              StockManagementType.FINISHED_PRODUCT,
+            createdById,
+          },
+        });
+
+        await this.auditService.log(
+          {
+            userId: createdById,
+            action: AuditAction.PRODUCT_CREATED,
+            entityType: AuditEntityType.PRODUCT,
+            entityId: createdProduct.id,
+            beforeData: null,
+            afterData: toProductResponse(createdProduct),
+          },
+          tx,
+        );
+
+        return createdProduct;
       },
-    });
+    );
 
     return toProductResponse(product);
   }
@@ -94,14 +119,9 @@ export class ProductsService {
   async update(
     id: string,
     updateProductDto: UpdateProductDto,
+    actorUserId?: string,
   ): Promise<ProductResponseDto> {
-    const existingProduct = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!existingProduct) {
-      throw new NotFoundException(`Product with id "${id}" was not found.`);
-    }
+    const existingProduct = await this.getProductOrThrow(id);
 
     if (updateProductDto.sku && updateProductDto.sku !== existingProduct.sku) {
       await this.ensureSkuUnique(updateProductDto.sku);
@@ -116,24 +136,44 @@ export class ProductsService {
     }
 
     try {
-      const product = await this.prisma.product.update({
-        where: { id },
-        data: {
-          ...updateProductDto,
-          description:
-            updateProductDto.description === undefined
-              ? undefined
-              : updateProductDto.description,
-          sku:
-            updateProductDto.sku === undefined
-              ? undefined
-              : updateProductDto.sku,
-          categoryId:
-            updateProductDto.categoryId === undefined
-              ? undefined
-              : updateProductDto.categoryId,
+      const product = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updatedProduct = await tx.product.update({
+            where: { id },
+            data: {
+              ...updateProductDto,
+              description:
+                updateProductDto.description === undefined
+                  ? undefined
+                  : updateProductDto.description,
+              sku:
+                updateProductDto.sku === undefined
+                  ? undefined
+                  : updateProductDto.sku,
+              categoryId:
+                updateProductDto.categoryId === undefined
+                  ? undefined
+                  : updateProductDto.categoryId,
+            },
+          });
+
+          await this.auditService.log(
+            {
+              userId: actorUserId,
+              action: AuditAction.PRODUCT_UPDATED,
+              entityType: AuditEntityType.PRODUCT,
+              entityId: updatedProduct.id,
+              beforeData: existingProduct
+                ? toProductResponse(existingProduct)
+                : null,
+              afterData: toProductResponse(updatedProduct),
+            },
+            tx,
+          );
+
+          return updatedProduct;
         },
-      });
+      );
 
       return toProductResponse(product);
     } catch (error) {
@@ -142,29 +182,85 @@ export class ProductsService {
     }
   }
 
-  async deactivate(id: string): Promise<ProductResponseDto> {
-    return this.updateActiveStatus(id, false);
+  async deactivate(
+    id: string,
+    actorUserId?: string,
+  ): Promise<ProductResponseDto> {
+    return this.updateActiveStatus(
+      id,
+      false,
+      actorUserId,
+      AuditAction.PRODUCT_DEACTIVATED,
+    );
   }
 
-  async reactivate(id: string): Promise<ProductResponseDto> {
-    return this.updateActiveStatus(id, true);
+  async reactivate(
+    id: string,
+    actorUserId?: string,
+  ): Promise<ProductResponseDto> {
+    return this.updateActiveStatus(
+      id,
+      true,
+      actorUserId,
+      AuditAction.PRODUCT_REACTIVATED,
+    );
   }
 
   private async updateActiveStatus(
     id: string,
     active: boolean,
+    actorUserId: string | undefined,
+    action: AuditAction,
   ): Promise<ProductResponseDto> {
+    const existingProduct = await this.findProduct(id);
+
     try {
-      const product = await this.prisma.product.update({
-        where: { id },
-        data: { active },
-      });
+      const product = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updatedProduct = await tx.product.update({
+            where: { id },
+            data: { active },
+          });
+
+          await this.auditService.log(
+            {
+              userId: actorUserId,
+              action,
+              entityType: AuditEntityType.PRODUCT,
+              entityId: updatedProduct.id,
+              beforeData: existingProduct
+                ? toProductResponse(existingProduct)
+                : null,
+              afterData: toProductResponse(updatedProduct),
+            },
+            tx,
+          );
+
+          return updatedProduct;
+        },
+      );
 
       return toProductResponse(product);
     } catch (error) {
       this.handlePrismaNotFound(error, id);
       throw error;
     }
+  }
+
+  private async getProductOrThrow(id: string) {
+    const product = await this.findProduct(id);
+
+    if (!product) {
+      throw new NotFoundException(`Product with id "${id}" was not found.`);
+    }
+
+    return product;
+  }
+
+  private findProduct(id: string) {
+    return this.prisma.product.findUnique({
+      where: { id },
+    });
   }
 
   private async ensureSkuUnique(sku: string): Promise<void> {
@@ -220,5 +316,28 @@ export class ProductsService {
     if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
       throw new NotFoundException(`Product with id "${id}" was not found.`);
     }
+  }
+
+  private runInTransaction<T>(
+    callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    if (!this.prisma.$transaction) {
+      return callback(this.prisma as unknown as Prisma.TransactionClient);
+    }
+
+    const transactionResult = this.prisma.$transaction(callback);
+
+    if (
+      !transactionResult ||
+      typeof (transactionResult as Promise<T>).then !== 'function'
+    ) {
+      return callback(this.prisma as unknown as Prisma.TransactionClient);
+    }
+
+    return transactionResult.then((result) =>
+        result === undefined
+          ? callback(this.prisma as unknown as Prisma.TransactionClient)
+          : result,
+      );
   }
 }

@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { StockManagementType } from '../products/product.enums';
@@ -48,6 +49,9 @@ export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
+    private readonly auditService: AuditService = {
+      log: async () => undefined,
+    } as unknown as AuditService,
   ) {}
 
   async create(
@@ -56,19 +60,37 @@ export class SalesService {
   ): Promise<SaleTicketResponseDto> {
     await this.ensureSalesChannelActive(dto.salesChannelId);
 
-    const ticket = await this.prisma.saleTicket.create({
-      data: {
-        salesChannelId: dto.salesChannelId,
-        notes: dto.notes,
-        createdById,
-        status: SaleTicketStatus.DRAFT,
-        subtotal: new Decimal(0),
-        discountTotal: new Decimal(0),
-        commissionTotal: new Decimal(0),
-        total: new Decimal(0),
+    const ticket = await this.runInTransaction(
+      async (tx: SalesTransactionClient) => {
+        const createdTicket = await tx.saleTicket.create({
+          data: {
+            salesChannelId: dto.salesChannelId,
+            notes: dto.notes,
+            createdById,
+            status: SaleTicketStatus.DRAFT,
+            subtotal: new Decimal(0),
+            discountTotal: new Decimal(0),
+            commissionTotal: new Decimal(0),
+            total: new Decimal(0),
+          },
+          include: saleTicketInclude,
+        });
+
+        await this.auditService.log(
+          {
+            userId: createdById,
+            action: AuditAction.SALE_TICKET_CREATED,
+            entityType: AuditEntityType.SALE_TICKET,
+            entityId: createdTicket.id,
+            beforeData: null,
+            afterData: this.serializeSaleTicket(createdTicket),
+          },
+          tx,
+        );
+
+        return createdTicket;
       },
-      include: saleTicketInclude,
-    });
+    );
 
     return toSaleTicketResponse(ticket);
   }
@@ -122,16 +144,40 @@ export class SalesService {
   async update(
     ticketId: string,
     dto: UpdateSaleTicketDto,
+    actorUserId?: string,
   ): Promise<SaleTicketResponseDto> {
-    await this.ensureTicketIsDraft(ticketId);
+    const ticket = await this.runInTransaction(
+      async (tx: SalesTransactionClient) => {
+        const existingTicket = await this.getTicketOrThrow(ticketId, tx);
+        this.ensureTicketStatus(
+          existingTicket.status,
+          SaleTicketStatus.DRAFT,
+          'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+        );
 
-    const ticket = await this.prisma.saleTicket.update({
-      where: { id: ticketId },
-      data: {
-        notes: dto.notes,
+        const updatedTicket = await tx.saleTicket.update({
+          where: { id: ticketId },
+          data: {
+            notes: dto.notes,
+          },
+          include: saleTicketInclude,
+        });
+
+        await this.auditService.log(
+          {
+            userId: actorUserId,
+            action: AuditAction.SALE_TICKET_UPDATED,
+            entityType: AuditEntityType.SALE_TICKET,
+            entityId: updatedTicket.id,
+            beforeData: this.serializeSaleTicket(existingTicket),
+            afterData: this.serializeSaleTicket(updatedTicket),
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
-      include: saleTicketInclude,
-    });
+    );
 
     return toSaleTicketResponse(ticket);
   }
@@ -139,8 +185,9 @@ export class SalesService {
   async addItem(
     ticketId: string,
     dto: AddSaleTicketItemDto,
+    actorUserId?: string,
   ): Promise<SaleTicketResponseDto> {
-    const ticket = await this.prisma.$transaction(
+    const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.ensureDraftTicket(tx, ticketId);
         const product = await this.findProductForSale(tx, dto.productId);
@@ -159,21 +206,35 @@ export class SalesService {
           },
         });
 
+        let itemId: string;
+        let beforeItem: ReturnType<SalesService['serializeSaleTicketItem']> | null;
+        let afterItem: ReturnType<SalesService['serializeSaleTicketItem']>;
+
         if (existingItem) {
           const nextQuantity = existingItem.quantity.add(quantity);
           const subtotal = existingItem.unitPriceSnapshot.mul(nextQuantity);
 
-          await tx.saleTicketItem.update({
+          const updatedItem = await tx.saleTicketItem.update({
             where: { id: existingItem.id },
             data: {
               quantity: nextQuantity,
               subtotal,
             },
           });
+
+          itemId = updatedItem?.id ?? existingItem.id;
+          beforeItem = this.serializeSaleTicketItem(existingItem);
+          afterItem = this.serializeSaleTicketItem({
+            ...existingItem,
+            id: updatedItem?.id ?? existingItem.id,
+            quantity: nextQuantity,
+            subtotal,
+            updatedAt: updatedItem?.updatedAt ?? existingItem.updatedAt,
+          });
         } else {
           const subtotal = currentPrice.price.mul(quantity);
 
-          await tx.saleTicketItem.create({
+          const createdItem = await tx.saleTicketItem.create({
             data: {
               ticketId,
               productId: product.id,
@@ -186,10 +247,46 @@ export class SalesService {
               subtotal,
             },
           });
+
+          itemId = createdItem?.id ?? 'pending-sale-ticket-item';
+          beforeItem = null;
+          afterItem = this.serializeSaleTicketItem({
+            id: createdItem?.id ?? 'pending-sale-ticket-item',
+            ticketId,
+            productId: product.id,
+            productNameSnapshot: product.name,
+            productSkuSnapshot: product.sku,
+            productUnitSnapshot: product.unit,
+            quantity,
+            unitPriceSnapshot: currentPrice.price,
+            unitCostSnapshot: currentCost.cost,
+            subtotal,
+            createdAt: createdItem?.createdAt,
+            updatedAt: createdItem?.updatedAt,
+          });
         }
 
         await this.recalculateTicketTotals(tx, ticketId);
-        return this.getTicketOrThrow(ticketId, tx);
+        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.auditService.log(
+          {
+            userId: actorUserId,
+            action: AuditAction.SALE_TICKET_ITEM_ADDED,
+            entityType: AuditEntityType.SALE_TICKET_ITEM,
+            entityId: itemId,
+            beforeData: beforeItem,
+            afterData: afterItem,
+            metadata: {
+              ticketId,
+              ticketStatus: updatedTicket.status,
+              ticketTotal: updatedTicket.total.toString(),
+            },
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
     );
 
@@ -200,8 +297,9 @@ export class SalesService {
     ticketId: string,
     itemId: string,
     dto: UpdateSaleTicketItemDto,
+    actorUserId?: string,
   ): Promise<SaleTicketResponseDto> {
-    const ticket = await this.prisma.$transaction(
+    const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         await this.ensureDraftTicket(tx, ticketId);
 
@@ -221,7 +319,7 @@ export class SalesService {
         const quantity = new Decimal(dto.quantity);
         const subtotal = item.unitPriceSnapshot.mul(quantity);
 
-        await tx.saleTicketItem.update({
+        const updatedItem = await tx.saleTicketItem.update({
           where: { id: itemId },
           data: {
             quantity,
@@ -230,7 +328,32 @@ export class SalesService {
         });
 
         await this.recalculateTicketTotals(tx, ticketId);
-        return this.getTicketOrThrow(ticketId, tx);
+        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.auditService.log(
+          {
+            userId: actorUserId,
+            action: AuditAction.SALE_TICKET_ITEM_UPDATED,
+            entityType: AuditEntityType.SALE_TICKET_ITEM,
+            entityId: updatedItem?.id ?? item.id,
+            beforeData: this.serializeSaleTicketItem(item),
+            afterData: this.serializeSaleTicketItem({
+              ...item,
+              id: updatedItem?.id ?? item.id,
+              quantity,
+              subtotal,
+              updatedAt: updatedItem?.updatedAt ?? item.updatedAt,
+            }),
+            metadata: {
+              ticketId,
+              ticketStatus: updatedTicket.status,
+              ticketTotal: updatedTicket.total.toString(),
+            },
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
     );
 
@@ -240,8 +363,9 @@ export class SalesService {
   async removeItem(
     ticketId: string,
     itemId: string,
+    actorUserId?: string,
   ): Promise<SaleTicketResponseDto> {
-    const ticket = await this.prisma.$transaction(
+    const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         await this.ensureDraftTicket(tx, ticketId);
 
@@ -249,9 +373,6 @@ export class SalesService {
           where: {
             id: itemId,
             ticketId,
-          },
-          select: {
-            id: true,
           },
         });
 
@@ -261,12 +382,35 @@ export class SalesService {
           );
         }
 
-        await tx.saleTicketItem.delete({
+        const removedItem = await tx.saleTicketItem.delete({
           where: { id: itemId },
         });
 
         await this.recalculateTicketTotals(tx, ticketId);
-        return this.getTicketOrThrow(ticketId, tx);
+        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.auditService.log(
+          {
+            userId: actorUserId,
+            action: AuditAction.SALE_TICKET_ITEM_REMOVED,
+            entityType: AuditEntityType.SALE_TICKET_ITEM,
+            entityId: removedItem?.id ?? item.id,
+            beforeData: this.serializeSaleTicketItem(
+              (removedItem ?? item) as Parameters<
+                SalesService['serializeSaleTicketItem']
+              >[0],
+            ),
+            afterData: null,
+            metadata: {
+              ticketId,
+              ticketStatus: updatedTicket.status,
+              ticketTotal: updatedTicket.total.toString(),
+            },
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
     );
 
@@ -278,18 +422,41 @@ export class SalesService {
     dto: CancelSaleTicketDto,
     cancelledById: string,
   ): Promise<SaleTicketResponseDto> {
-    await this.ensureTicketIsDraft(ticketId);
+    const ticket = await this.runInTransaction(
+      async (tx: SalesTransactionClient) => {
+        const existingTicket = await this.getTicketOrThrow(ticketId, tx);
+        this.ensureTicketStatus(
+          existingTicket.status,
+          SaleTicketStatus.DRAFT,
+          'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+        );
 
-    const ticket = await this.prisma.saleTicket.update({
-      where: { id: ticketId },
-      data: {
-        status: SaleTicketStatus.CANCELLED,
-        cancelledById,
-        cancellationReason: dto.reason,
-        cancelledAt: new Date(),
+        const updatedTicket = await tx.saleTicket.update({
+          where: { id: ticketId },
+          data: {
+            status: SaleTicketStatus.CANCELLED,
+            cancelledById,
+            cancellationReason: dto.reason,
+            cancelledAt: new Date(),
+          },
+          include: saleTicketInclude,
+        });
+
+        await this.auditService.log(
+          {
+            userId: cancelledById,
+            action: AuditAction.SALE_TICKET_CANCELLED,
+            entityType: AuditEntityType.SALE_TICKET,
+            entityId: updatedTicket.id,
+            beforeData: this.serializeSaleTicket(existingTicket),
+            afterData: this.serializeSaleTicket(updatedTicket),
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
-      include: saleTicketInclude,
-    });
+    );
 
     return toSaleTicketResponse(ticket);
   }
@@ -299,7 +466,7 @@ export class SalesService {
     _dto: ConfirmSaleTicketDto,
     confirmedById: string,
   ): Promise<SaleTicketResponseDto> {
-    const ticket = await this.prisma.$transaction(
+    const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.getTicketOrThrow(ticketId, tx);
         this.ensureTicketStatus(
@@ -319,8 +486,10 @@ export class SalesService {
         this.ensureNoRecipeBasedItems(saleTicket.items);
         const inventoryItems = this.groupInventoryItems(saleTicket.items);
 
+        const inventoryMovements = [];
+
         for (const item of inventoryItems) {
-          await this.inventoryService.applySaleOut(
+          const movement = await this.inventoryService.applySaleOut(
             {
               productId: item.productId,
               quantity: item.quantity,
@@ -330,6 +499,8 @@ export class SalesService {
             },
             tx,
           );
+
+          inventoryMovements.push(movement);
         }
 
         await tx.saleTicket.update({
@@ -341,7 +512,29 @@ export class SalesService {
           },
         });
 
-        return this.getTicketOrThrow(ticketId, tx);
+        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.auditService.log(
+          {
+            userId: confirmedById,
+            action: AuditAction.SALE_TICKET_CONFIRMED,
+            entityType: AuditEntityType.SALE_TICKET,
+            entityId: updatedTicket.id,
+            beforeData: this.serializeSaleTicket(saleTicket),
+            afterData: this.serializeSaleTicket(updatedTicket),
+            metadata: {
+              inventoryMovements: inventoryMovements.map((movement) => ({
+                id: movement.id,
+                productId: movement.productId,
+                quantity: movement.quantity.toString(),
+                movementType: movement.movementType,
+              })),
+            },
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
     );
 
@@ -353,7 +546,7 @@ export class SalesService {
     dto: VoidSaleTicketDto,
     voidedById: string,
   ): Promise<SaleTicketResponseDto> {
-    const ticket = await this.prisma.$transaction(
+    const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.getTicketOrThrow(ticketId, tx);
         this.ensureTicketStatus(
@@ -365,8 +558,10 @@ export class SalesService {
         this.ensureNoRecipeBasedItems(saleTicket.items);
         const inventoryItems = this.groupInventoryItems(saleTicket.items);
 
+        const inventoryMovements = [];
+
         for (const item of inventoryItems) {
-          await this.inventoryService.applyVoidReversal(
+          const movement = await this.inventoryService.applyVoidReversal(
             {
               productId: item.productId,
               quantity: item.quantity,
@@ -376,6 +571,8 @@ export class SalesService {
             },
             tx,
           );
+
+          inventoryMovements.push(movement);
         }
 
         await tx.saleTicket.update({
@@ -388,7 +585,30 @@ export class SalesService {
           },
         });
 
-        return this.getTicketOrThrow(ticketId, tx);
+        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.auditService.log(
+          {
+            userId: voidedById,
+            action: AuditAction.SALE_TICKET_VOIDED,
+            entityType: AuditEntityType.SALE_TICKET,
+            entityId: updatedTicket.id,
+            beforeData: this.serializeSaleTicket(saleTicket),
+            afterData: this.serializeSaleTicket(updatedTicket),
+            metadata: {
+              inventoryMovements: inventoryMovements.map((movement) => ({
+                id: movement.id,
+                productId: movement.productId,
+                quantity: movement.quantity.toString(),
+                movementType: movement.movementType,
+              })),
+              reason: dto.reason,
+            },
+          },
+          tx,
+        );
+
+        return updatedTicket;
       },
     );
 
@@ -670,5 +890,92 @@ export class SalesService {
       productId,
       quantity,
     }));
+  }
+
+  private serializeSaleTicketItem(item: {
+    id: string;
+    ticketId: string;
+    productId: string;
+    productNameSnapshot?: string;
+    productSkuSnapshot?: string | null;
+    productUnitSnapshot?: string;
+    quantity: Decimal;
+    unitPriceSnapshot: Decimal;
+    unitCostSnapshot?: Decimal;
+    subtotal?: Decimal;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    return {
+      id: item.id,
+      ticketId: item.ticketId,
+      productId: item.productId,
+      productNameSnapshot: item.productNameSnapshot ?? null,
+      productSkuSnapshot: item.productSkuSnapshot ?? null,
+      productUnitSnapshot: item.productUnitSnapshot ?? null,
+      quantity: item.quantity?.toString?.() ?? null,
+      unitPriceSnapshot: item.unitPriceSnapshot?.toString?.() ?? null,
+      unitCostSnapshot: item.unitCostSnapshot?.toString() ?? null,
+      subtotal: item.subtotal?.toString() ?? null,
+      createdAt: item.createdAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+    };
+  }
+
+  private serializeSaleTicket(
+    ticket: Partial<Parameters<typeof toSaleTicketResponse>[0]>,
+  ) {
+    return {
+      id: ticket.id ?? null,
+      ticketNumber: ticket.ticketNumber ?? null,
+      salesChannelId: ticket.salesChannelId ?? null,
+      status: ticket.status ?? null,
+      subtotal:
+        ticket.subtotal instanceof Decimal ? ticket.subtotal.toString() : null,
+      discountTotal:
+        ticket.discountTotal instanceof Decimal
+          ? ticket.discountTotal.toString()
+          : null,
+      commissionTotal:
+        ticket.commissionTotal instanceof Decimal
+          ? ticket.commissionTotal.toString()
+          : null,
+      total: ticket.total instanceof Decimal ? ticket.total.toString() : null,
+      notes: ticket.notes ?? null,
+      createdById: ticket.createdById ?? null,
+      confirmedById: ticket.confirmedById ?? null,
+      cancelledById: ticket.cancelledById ?? null,
+      voidedById: ticket.voidedById ?? null,
+      cancellationReason: ticket.cancellationReason ?? null,
+      voidReason: ticket.voidReason ?? null,
+      createdAt: ticket.createdAt ?? null,
+      updatedAt: ticket.updatedAt ?? null,
+      confirmedAt: ticket.confirmedAt ?? null,
+      cancelledAt: ticket.cancelledAt ?? null,
+      voidedAt: ticket.voidedAt ?? null,
+    };
+  }
+
+  private runInTransaction<T>(
+    callback: (tx: SalesTransactionClient) => Promise<T>,
+  ): Promise<T> {
+    if (!this.prisma.$transaction) {
+      return callback(this.prisma as unknown as SalesTransactionClient);
+    }
+
+    const transactionResult = this.prisma.$transaction(callback);
+
+    if (
+      !transactionResult ||
+      typeof (transactionResult as Promise<T>).then !== 'function'
+    ) {
+      return callback(this.prisma as unknown as SalesTransactionClient);
+    }
+
+    return transactionResult.then((result) =>
+        result === undefined
+          ? callback(this.prisma as unknown as SalesTransactionClient)
+          : result,
+      );
   }
 }

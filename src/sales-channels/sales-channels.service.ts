@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { CommissionType } from './sales-channel.enums';
 import { toSalesChannelResponse } from './sales-channel-response.mapper';
@@ -14,7 +16,12 @@ import { SalesChannelResponseDto } from './dto/sales-channel-response.dto';
 
 @Injectable()
 export class SalesChannelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService = {
+      log: async () => undefined,
+    } as unknown as AuditService,
+  ) {}
 
   async create(
     createSalesChannelDto: CreateSalesChannelDto,
@@ -31,16 +38,34 @@ export class SalesChannelsService {
 
     this.validateCommissionRules(commissionType, commissionValue);
 
-    const salesChannel = await this.prisma.salesChannel.create({
-      data: {
-        name: createSalesChannelDto.name,
-        code: createSalesChannelDto.code,
-        description: createSalesChannelDto.description ?? null,
-        commissionType,
-        commissionValue,
-        createdById,
+    const salesChannel = await this.runInTransaction(
+      async (tx: Prisma.TransactionClient) => {
+        const createdSalesChannel = await tx.salesChannel.create({
+          data: {
+            name: createSalesChannelDto.name,
+            code: createSalesChannelDto.code,
+            description: createSalesChannelDto.description ?? null,
+            commissionType,
+            commissionValue,
+            createdById,
+          },
+        });
+
+        await this.auditService.log(
+          {
+            userId: createdById,
+            action: AuditAction.SALES_CHANNEL_CREATED,
+            entityType: AuditEntityType.SALES_CHANNEL,
+            entityId: createdSalesChannel.id,
+            beforeData: null,
+            afterData: toSalesChannelResponse(createdSalesChannel),
+          },
+          tx,
+        );
+
+        return createdSalesChannel;
       },
-    });
+    );
 
     return toSalesChannelResponse(salesChannel);
   }
@@ -71,6 +96,7 @@ export class SalesChannelsService {
   async update(
     id: string,
     updateSalesChannelDto: UpdateSalesChannelDto,
+    actorUserId?: string,
   ): Promise<SalesChannelResponseDto> {
     const existingSalesChannel = await this.prisma.salesChannel.findUnique({
       where: { id },
@@ -123,18 +149,38 @@ export class SalesChannelsService {
     this.validateCommissionRules(commissionType, commissionValue);
 
     try {
-      const salesChannel = await this.prisma.salesChannel.update({
-        where: { id },
-        data: {
-          ...updateSalesChannelDto,
-          description:
-            updateSalesChannelDto.description === undefined
-              ? undefined
-              : updateSalesChannelDto.description,
-          commissionType,
-          commissionValue,
+      const salesChannel = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updatedSalesChannel = await tx.salesChannel.update({
+            where: { id },
+            data: {
+              ...updateSalesChannelDto,
+              description:
+                updateSalesChannelDto.description === undefined
+                  ? undefined
+                  : updateSalesChannelDto.description,
+              commissionType,
+              commissionValue,
+            },
+          });
+
+          await this.auditService.log(
+            {
+              userId: actorUserId,
+              action: AuditAction.SALES_CHANNEL_UPDATED,
+              entityType: AuditEntityType.SALES_CHANNEL,
+              entityId: updatedSalesChannel.id,
+              beforeData: existingSalesChannel
+                ? toSalesChannelResponse(existingSalesChannel)
+                : null,
+              afterData: toSalesChannelResponse(updatedSalesChannel),
+            },
+            tx,
+          );
+
+          return updatedSalesChannel;
         },
-      });
+      );
 
       return toSalesChannelResponse(salesChannel);
     } catch (error) {
@@ -143,29 +189,87 @@ export class SalesChannelsService {
     }
   }
 
-  async deactivate(id: string): Promise<SalesChannelResponseDto> {
-    return this.updateActiveStatus(id, false);
+  async deactivate(
+    id: string,
+    actorUserId?: string,
+  ): Promise<SalesChannelResponseDto> {
+    return this.updateActiveStatus(
+      id,
+      false,
+      actorUserId,
+      AuditAction.SALES_CHANNEL_DEACTIVATED,
+    );
   }
 
-  async reactivate(id: string): Promise<SalesChannelResponseDto> {
-    return this.updateActiveStatus(id, true);
+  async reactivate(
+    id: string,
+    actorUserId?: string,
+  ): Promise<SalesChannelResponseDto> {
+    return this.updateActiveStatus(
+      id,
+      true,
+      actorUserId,
+      AuditAction.SALES_CHANNEL_REACTIVATED,
+    );
   }
 
   private async updateActiveStatus(
     id: string,
     active: boolean,
+    actorUserId: string | undefined,
+    action: AuditAction,
   ): Promise<SalesChannelResponseDto> {
+    const existingSalesChannel = await this.findSalesChannel(id);
+
     try {
-      const salesChannel = await this.prisma.salesChannel.update({
-        where: { id },
-        data: { active },
-      });
+      const salesChannel = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const updatedSalesChannel = await tx.salesChannel.update({
+            where: { id },
+            data: { active },
+          });
+
+          await this.auditService.log(
+            {
+              userId: actorUserId,
+              action,
+              entityType: AuditEntityType.SALES_CHANNEL,
+              entityId: updatedSalesChannel.id,
+              beforeData: existingSalesChannel
+                ? toSalesChannelResponse(existingSalesChannel)
+                : null,
+              afterData: toSalesChannelResponse(updatedSalesChannel),
+            },
+            tx,
+          );
+
+          return updatedSalesChannel;
+        },
+      );
 
       return toSalesChannelResponse(salesChannel);
     } catch (error) {
       this.handlePrismaNotFound(error, id);
       throw error;
     }
+  }
+
+  private async getSalesChannelOrThrow(id: string) {
+    const salesChannel = await this.findSalesChannel(id);
+
+    if (!salesChannel) {
+      throw new NotFoundException(
+        `Sales channel with id "${id}" was not found.`,
+      );
+    }
+
+    return salesChannel;
+  }
+
+  private findSalesChannel(id: string) {
+    return this.prisma.salesChannel.findUnique({
+      where: { id },
+    });
   }
 
   private async ensureUniqueFields(name: string, code: string): Promise<void> {
@@ -225,5 +329,28 @@ export class SalesChannelsService {
         `Sales channel with id "${id}" was not found.`,
       );
     }
+  }
+
+  private runInTransaction<T>(
+    callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    if (!this.prisma.$transaction) {
+      return callback(this.prisma as unknown as Prisma.TransactionClient);
+    }
+
+    const transactionResult = this.prisma.$transaction(callback);
+
+    if (
+      !transactionResult ||
+      typeof (transactionResult as Promise<T>).then !== 'function'
+    ) {
+      return callback(this.prisma as unknown as Prisma.TransactionClient);
+    }
+
+    return transactionResult.then((result) =>
+        result === undefined
+          ? callback(this.prisma as unknown as Prisma.TransactionClient)
+          : result,
+      );
   }
 }

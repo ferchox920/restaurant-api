@@ -20,9 +20,11 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.type';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -54,8 +56,11 @@ export class UsersController {
   @ApiForbiddenResponse({
     description: 'El usuario autenticado no tiene rol ADMIN.',
   })
-  create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    return this.usersService.create(createUserDto, user.id);
   }
 
   @Get()
@@ -126,8 +131,9 @@ export class UsersController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<UserResponseDto> {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, user.id);
   }
 
   @Patch(':id/deactivate')
@@ -154,8 +160,9 @@ export class UsersController {
   })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<UserResponseDto> {
-    return this.usersService.deactivate(id);
+    return this.usersService.deactivate(id, user.id);
   }
 
   @Patch(':id/reactivate')
@@ -179,7 +186,8 @@ export class UsersController {
   })
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<UserResponseDto> {
-    return this.usersService.reactivate(id);
+    return this.usersService.reactivate(id, user.id);
   }
 }

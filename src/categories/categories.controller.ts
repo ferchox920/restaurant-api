@@ -150,8 +150,9 @@ export class CategoriesController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryResponseDto> {
-    return this.categoriesService.update(id, updateCategoryDto);
+    return this.categoriesService.update(id, updateCategoryDto, user.id);
   }
 
   @Patch(':id/deactivate')
@@ -176,8 +177,9 @@ export class CategoriesController {
   })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryResponseDto> {
-    return this.categoriesService.deactivate(id);
+    return this.categoriesService.deactivate(id, user.id);
   }
 
   @Patch(':id/reactivate')
@@ -202,8 +204,9 @@ export class CategoriesController {
   })
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryResponseDto> {
-    return this.categoriesService.reactivate(id);
+    return this.categoriesService.reactivate(id, user.id);
   }
 
   private parseActiveFilter(active?: string): boolean | undefined {

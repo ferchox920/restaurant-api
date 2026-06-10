@@ -389,8 +389,9 @@ export class ProductsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProductResponseDto> {
-    return this.productsService.update(id, updateProductDto);
+    return this.productsService.update(id, updateProductDto, user.id);
   }
 
   @Patch(':id/deactivate')
@@ -416,8 +417,9 @@ export class ProductsController {
   })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProductResponseDto> {
-    return this.productsService.deactivate(id);
+    return this.productsService.deactivate(id, user.id);
   }
 
   @Patch(':id/reactivate')
@@ -443,8 +445,9 @@ export class ProductsController {
   })
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProductResponseDto> {
-    return this.productsService.reactivate(id);
+    return this.productsService.reactivate(id, user.id);
   }
 
   private parseActiveFilter(active?: string): boolean | undefined {

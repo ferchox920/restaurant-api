@@ -1,10 +1,12 @@
 import { ConflictException } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { CategoriesService } from './categories.service';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
   let prismaService: {
+    $transaction: jest.Mock;
     category: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -12,9 +14,13 @@ describe('CategoriesService', () => {
       update: jest.Mock;
     };
   };
+  let auditService: {
+    log: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaService = {
+      $transaction: jest.fn(),
       category: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -22,8 +28,14 @@ describe('CategoriesService', () => {
         update: jest.fn(),
       },
     };
+    auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
 
-    service = new CategoriesService(prismaService as unknown as PrismaService);
+    service = new CategoriesService(
+      prismaService as unknown as PrismaService,
+      auditService as unknown as AuditService,
+    );
   });
 
   it('creates a category', async () => {
@@ -190,5 +202,82 @@ describe('CategoriesService', () => {
       orderBy: { name: 'asc' },
     });
     expect(result).toEqual([]);
+  });
+
+  it('creates an audit log when creating a category', async () => {
+    prismaService.category.findUnique.mockResolvedValueOnce(null);
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(prismaService),
+    );
+    prismaService.category.create.mockResolvedValueOnce({
+      id: 'category-1',
+      name: 'Hamburguesas',
+      description: 'Linea principal',
+      active: true,
+      createdById: 'admin-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+    });
+
+    await service.create(
+      {
+        name: 'Hamburguesas',
+        description: 'Linea principal',
+      },
+      'admin-1',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'admin-1',
+        entityId: 'category-1',
+        beforeData: null,
+        afterData: expect.objectContaining({
+          name: 'Hamburguesas',
+        }),
+      }),
+      prismaService,
+    );
+  });
+
+  it('writes before and after snapshots when updating a category', async () => {
+    prismaService.category.findUnique
+      .mockResolvedValueOnce({
+        id: 'category-1',
+        name: 'Old',
+        description: 'Before',
+        active: true,
+        createdById: 'admin-1',
+        createdAt: new Date('2026-06-09T00:00:00.000Z'),
+        updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+      })
+      .mockResolvedValueOnce(null);
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(prismaService),
+    );
+    prismaService.category.update.mockResolvedValueOnce({
+      id: 'category-1',
+      name: 'New',
+      description: 'After',
+      active: true,
+      createdById: 'admin-1',
+      createdAt: new Date('2026-06-09T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-10T00:00:00.000Z'),
+    });
+
+    await service.update(
+      'category-1',
+      { name: 'New', description: 'After' },
+      'manager-1',
+    );
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'manager-1',
+        beforeData: expect.objectContaining({ name: 'Old' }),
+        afterData: expect.objectContaining({ name: 'New' }),
+      }),
+      prismaService,
+    );
   });
 });
