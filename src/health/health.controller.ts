@@ -1,6 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { HealthService } from './health.service';
+import {
+  HealthReadinessResponse,
+  HealthResponse,
+  HealthService,
+} from './health.service';
 
 @ApiTags('health')
 @Controller('health')
@@ -20,12 +24,23 @@ export class HealthController {
       },
     },
   })
-  getHealth(): {
-    status: string;
-    service: string;
-    timestamp: string;
-    environment: string;
-  } {
+  getHealth(): HealthResponse {
     return this.healthService.getHealth();
+  }
+
+  @Get('readiness')
+  @ApiOperation({ summary: 'Readiness check con verificacion de base de datos' })
+  @ApiOkResponse({
+    description: 'La API y la base de datos estan listas para recibir trafico.',
+    schema: {
+      example: {
+        status: 'ok',
+        database: 'ok',
+        timestamp: '2026-06-10T11:20:31.000Z',
+      },
+    },
+  })
+  getReadiness(): Promise<HealthReadinessResponse> {
+    return this.healthService.getReadiness();
   }
 }

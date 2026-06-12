@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -51,6 +52,9 @@ export class CategoriesController {
     description: 'Categoria creada correctamente.',
     type: CategoryResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido.',
+  })
   @ApiConflictResponse({
     description: 'Ya existe una categoria con el nombre informado.',
   })
@@ -86,6 +90,9 @@ export class CategoriesController {
     type: CategoryResponseDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description: 'El parametro active debe ser true o false si se envia.',
+  })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
   })
@@ -108,6 +115,9 @@ export class CategoriesController {
   @ApiOkResponse({
     description: 'Categoria encontrada.',
     type: CategoryResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Categoria no encontrada.',
@@ -134,6 +144,9 @@ export class CategoriesController {
   @ApiOkResponse({
     description: 'Categoria actualizada correctamente.',
     type: CategoryResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o id no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Categoria no encontrada.',
@@ -166,6 +179,9 @@ export class CategoriesController {
     description: 'Categoria desactivada correctamente.',
     type: CategoryResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Categoria no encontrada.',
   })
@@ -192,6 +208,9 @@ export class CategoriesController {
   @ApiOkResponse({
     description: 'Categoria reactivada correctamente.',
     type: CategoryResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Categoria no encontrada.',

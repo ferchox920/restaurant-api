@@ -1,4 +1,13 @@
-import { CommissionType, PrismaClient, Role } from '@prisma/client';
+import {
+  CommissionType,
+  InventoryReferenceType,
+  InventoryMovementType,
+  Prisma,
+  PrismaClient,
+  ProductUnit,
+  Role,
+  StockManagementType,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -44,6 +53,97 @@ const initialSalesChannels = [
   },
 ] as const;
 
+const demoUsers = [
+  {
+    role: Role.MANAGER,
+    emailEnv: 'MANAGER_EMAIL',
+    passwordEnv: 'MANAGER_PASSWORD',
+    firstName: 'Demo',
+    lastName: 'Manager',
+  },
+  {
+    role: Role.CASHIER,
+    emailEnv: 'CASHIER_EMAIL',
+    passwordEnv: 'CASHIER_PASSWORD',
+    firstName: 'Demo',
+    lastName: 'Cashier',
+  },
+  {
+    role: Role.AUDITOR,
+    emailEnv: 'AUDITOR_EMAIL',
+    passwordEnv: 'AUDITOR_PASSWORD',
+    firstName: 'Demo',
+    lastName: 'Auditor',
+  },
+] as const;
+
+const demoProducts = [
+  {
+    name: 'Hamburguesa clasica',
+    description: 'Hamburguesa clasica para demo MVP.',
+    sku: 'MVP-BURGER-001',
+    categoryName: 'Hamburguesas',
+    unit: ProductUnit.UNIT,
+    stockManagementType: StockManagementType.FINISHED_PRODUCT,
+    cost: 3500,
+    stock: 10,
+    pricesByChannelCode: {
+      COUNTER: 8000,
+      PEDIDOS_YA: 9200,
+      UBER_EATS: 9400,
+      WHATSAPP: 8200,
+    },
+  },
+  {
+    name: 'Papas fritas',
+    description: 'Papas fritas de demo para acompanar la venta.',
+    sku: 'MVP-FRIES-001',
+    categoryName: 'Papas',
+    unit: ProductUnit.SERVICE,
+    stockManagementType: StockManagementType.FINISHED_PRODUCT,
+    cost: 1200,
+    stock: 10,
+    pricesByChannelCode: {
+      COUNTER: 3200,
+      PEDIDOS_YA: 3700,
+      UBER_EATS: 3800,
+      WHATSAPP: 3300,
+    },
+  },
+  {
+    name: 'Coca-Cola 500ml',
+    description: 'Bebida embotellada para demo MVP.',
+    sku: 'MVP-COKE-500',
+    categoryName: 'Bebidas',
+    unit: ProductUnit.UNIT,
+    stockManagementType: StockManagementType.FINISHED_PRODUCT,
+    cost: 900,
+    stock: 20,
+    pricesByChannelCode: {
+      COUNTER: 2500,
+      PEDIDOS_YA: 2900,
+      UBER_EATS: 3000,
+      WHATSAPP: 2600,
+    },
+  },
+  {
+    name: 'Cargo de delivery',
+    description: 'Cargo no inventariable para demo MVP.',
+    sku: 'MVP-DELIVERY-001',
+    categoryName: 'Promociones',
+    unit: ProductUnit.UNIT,
+    stockManagementType: StockManagementType.NON_STOCKED,
+    cost: 0,
+    stock: null,
+    pricesByChannelCode: {
+      COUNTER: 0,
+      PEDIDOS_YA: 1200,
+      UBER_EATS: 1200,
+      WHATSAPP: 800,
+    },
+  },
+] as const;
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
 
@@ -51,7 +151,309 @@ function getRequiredEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
 
-  return value;
+  return value.trim();
+}
+
+function getOptionalEnv(name: string): string | undefined {
+  const value = process.env[name];
+
+  if (!value || value.trim().length === 0) {
+    return undefined;
+  }
+
+  return value.trim();
+}
+
+async function ensureUser(params: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+}): Promise<{ id: string; email: string; role: Role }> {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: params.email },
+    select: { id: true, email: true, role: true },
+  });
+
+  if (existingUser) {
+    console.log(
+      `Seed user skipped: ${existingUser.email} already exists with role ${existingUser.role}.`,
+    );
+    return existingUser;
+  }
+
+  const passwordHash = await bcrypt.hash(params.password, 10);
+
+  const createdUser = await prisma.user.create({
+    data: {
+      email: params.email,
+      passwordHash,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      role: params.role,
+      active: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+    },
+  });
+
+  console.log(
+    `Seed user created: ${createdUser.email} with role ${createdUser.role}.`,
+  );
+
+  return createdUser;
+}
+
+async function ensureCategories(
+  createdById: string | null,
+): Promise<Map<string, string>> {
+  let createdCategories = 0;
+  let skippedCategories = 0;
+  const categoriesByName = new Map<string, string>();
+
+  for (const name of initialCategories) {
+    const existingCategory = await prisma.category.findUnique({
+      where: { name },
+      select: { id: true, name: true },
+    });
+
+    if (existingCategory) {
+      skippedCategories += 1;
+      categoriesByName.set(existingCategory.name, existingCategory.id);
+      continue;
+    }
+
+    const createdCategory = await prisma.category.create({
+      data: {
+        name,
+        active: true,
+        createdById,
+      },
+      select: { id: true, name: true },
+    });
+
+    createdCategories += 1;
+    categoriesByName.set(createdCategory.name, createdCategory.id);
+  }
+
+  console.log(
+    `Seed categories: created ${createdCategories}, skipped ${skippedCategories}.`,
+  );
+
+  return categoriesByName;
+}
+
+async function ensureSalesChannels(
+  createdById: string | null,
+): Promise<Map<string, string>> {
+  let createdSalesChannels = 0;
+  let skippedSalesChannels = 0;
+  const channelsByCode = new Map<string, string>();
+
+  for (const salesChannel of initialSalesChannels) {
+    const existingSalesChannel = await prisma.salesChannel.findFirst({
+      where: {
+        OR: [{ name: salesChannel.name }, { code: salesChannel.code }],
+      },
+      select: { id: true, code: true },
+    });
+
+    if (existingSalesChannel) {
+      skippedSalesChannels += 1;
+      channelsByCode.set(existingSalesChannel.code, existingSalesChannel.id);
+      continue;
+    }
+
+    const createdSalesChannel = await prisma.salesChannel.create({
+      data: {
+        name: salesChannel.name,
+        code: salesChannel.code,
+        commissionType: salesChannel.commissionType,
+        commissionValue: new Prisma.Decimal(salesChannel.commissionValue),
+        active: true,
+        createdById,
+      },
+      select: { id: true, code: true },
+    });
+
+    createdSalesChannels += 1;
+    channelsByCode.set(createdSalesChannel.code, createdSalesChannel.id);
+  }
+
+  console.log(
+    `Seed sales channels: created ${createdSalesChannels}, skipped ${skippedSalesChannels}.`,
+  );
+
+  return channelsByCode;
+}
+
+async function ensureDemoProduct(params: {
+  name: string;
+  description: string;
+  sku: string;
+  categoryId: string | null;
+  unit: ProductUnit;
+  stockManagementType: StockManagementType;
+  createdById: string | null;
+}): Promise<{ id: string; name: string }> {
+  const existingProduct = await prisma.product.findFirst({
+    where: {
+      OR: [{ sku: params.sku }, { name: params.name }],
+    },
+    select: { id: true, name: true },
+  });
+
+  if (existingProduct) {
+    console.log(`Seed product skipped: ${existingProduct.name} already exists.`);
+    return existingProduct;
+  }
+
+  const createdProduct = await prisma.product.create({
+    data: {
+      name: params.name,
+      description: params.description,
+      sku: params.sku,
+      categoryId: params.categoryId,
+      unit: params.unit,
+      stockManagementType: params.stockManagementType,
+      active: true,
+      createdById: params.createdById,
+    },
+    select: { id: true, name: true },
+  });
+
+  console.log(`Seed product created: ${createdProduct.name}.`);
+
+  return createdProduct;
+}
+
+async function ensureCurrentCost(params: {
+  productId: string;
+  productName: string;
+  cost: number;
+  createdById: string | null;
+}): Promise<void> {
+  const existingCurrentCost = await prisma.productCostHistory.findFirst({
+    where: {
+      productId: params.productId,
+      validTo: null,
+    },
+    select: { id: true },
+  });
+
+  if (existingCurrentCost) {
+    console.log(`Seed cost skipped: ${params.productName} already has current cost.`);
+    return;
+  }
+
+  await prisma.productCostHistory.create({
+    data: {
+      productId: params.productId,
+      cost: new Prisma.Decimal(params.cost),
+      validFrom: new Date(),
+      createdById: params.createdById,
+    },
+  });
+
+  console.log(`Seed cost created: ${params.productName}.`);
+}
+
+async function ensureCurrentPrice(params: {
+  productId: string;
+  productName: string;
+  salesChannelId: string;
+  salesChannelCode: string;
+  price: number;
+  createdById: string | null;
+}): Promise<void> {
+  const existingCurrentPrice = await prisma.productPriceHistory.findFirst({
+    where: {
+      productId: params.productId,
+      salesChannelId: params.salesChannelId,
+      validTo: null,
+    },
+    select: { id: true },
+  });
+
+  if (existingCurrentPrice) {
+    console.log(
+      `Seed price skipped: ${params.productName} already has current price for ${params.salesChannelCode}.`,
+    );
+    return;
+  }
+
+  await prisma.productPriceHistory.create({
+    data: {
+      productId: params.productId,
+      salesChannelId: params.salesChannelId,
+      price: new Prisma.Decimal(params.price),
+      validFrom: new Date(),
+      createdById: params.createdById,
+    },
+  });
+
+  console.log(
+    `Seed price created: ${params.productName} for ${params.salesChannelCode}.`,
+  );
+}
+
+async function ensureInitialStock(params: {
+  productId: string;
+  productName: string;
+  quantity: number;
+  createdById: string | null;
+}): Promise<void> {
+  const existingStock = await prisma.productStock.findUnique({
+    where: { productId: params.productId },
+    select: { id: true },
+  });
+
+  if (existingStock) {
+    console.log(`Seed stock skipped: ${params.productName} already has stock row.`);
+    return;
+  }
+
+  const existingMovementCount = await prisma.inventoryMovement.count({
+    where: { productId: params.productId },
+  });
+
+  if (existingMovementCount > 0) {
+    console.log(
+      `Seed stock skipped: ${params.productName} already has inventory movements.`,
+    );
+    return;
+  }
+
+  const quantity = new Prisma.Decimal(params.quantity);
+  const zero = new Prisma.Decimal(0);
+
+  await prisma.$transaction([
+    prisma.productStock.create({
+      data: {
+        productId: params.productId,
+        currentStock: quantity,
+        minimumStock: zero,
+      },
+    }),
+    prisma.inventoryMovement.create({
+      data: {
+        productId: params.productId,
+        movementType: InventoryMovementType.STOCK_IN,
+        quantity,
+        previousStock: zero,
+        newStock: quantity,
+        reason: 'Seed inicial MVP',
+        referenceType: InventoryReferenceType.SYSTEM,
+        createdById: params.createdById,
+      },
+    }),
+  ]);
+
+  console.log(`Seed stock created: ${params.productName} => ${params.quantity}.`);
 }
 
 async function main(): Promise<void> {
@@ -60,105 +462,98 @@ async function main(): Promise<void> {
   const adminFirstName = getRequiredEnv('ADMIN_FIRST_NAME');
   const adminLastName = getRequiredEnv('ADMIN_LAST_NAME');
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: adminEmail },
-    select: { id: true, email: true, role: true },
+  const adminUser = await ensureUser({
+    email: adminEmail,
+    password: adminPassword,
+    firstName: adminFirstName,
+    lastName: adminLastName,
+    role: Role.ADMIN,
   });
 
-  let adminUserId = existingUser?.id;
+  console.warn(
+    'Security warning: seeded credentials are for local/demo use only and must be replaced in real environments.',
+  );
 
-  if (!existingUser) {
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
+  for (const demoUser of demoUsers) {
+    const email = getOptionalEnv(demoUser.emailEnv);
+    const password = getOptionalEnv(demoUser.passwordEnv);
 
-    const createdAdmin = await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        firstName: adminFirstName,
-        lastName: adminLastName,
-        role: Role.ADMIN,
-        active: true,
-      },
-      select: {
-        id: true,
-        email: true,
-      },
-    });
-
-    adminUserId = createdAdmin.id;
-    console.log(
-      `Seed completed: initial ADMIN user created for ${createdAdmin.email}.`,
-    );
-    console.warn(
-      'Security warning: change the seeded admin credentials before using this application outside local development.',
-    );
-  } else {
-    console.log(
-      `Seed skipped: user ${existingUser.email} already exists with role ${existingUser.role}.`,
-    );
-  }
-
-  let createdCategories = 0;
-  let skippedCategories = 0;
-
-  for (const name of initialCategories) {
-    const existingCategory = await prisma.category.findUnique({
-      where: { name },
-      select: { id: true },
-    });
-
-    if (existingCategory) {
-      skippedCategories += 1;
+    if (!email && !password) {
+      console.log(
+        `Seed demo user skipped: ${demoUser.role} not configured in environment.`,
+      );
       continue;
     }
 
-    await prisma.category.create({
-      data: {
-        name,
-        active: true,
-        createdById: adminUserId ?? null,
-      },
-    });
-
-    createdCategories += 1;
-  }
-
-  let createdSalesChannels = 0;
-  let skippedSalesChannels = 0;
-
-  for (const salesChannel of initialSalesChannels) {
-    const existingSalesChannel = await prisma.salesChannel.findFirst({
-      where: {
-        OR: [{ name: salesChannel.name }, { code: salesChannel.code }],
-      },
-      select: { id: true },
-    });
-
-    if (existingSalesChannel) {
-      skippedSalesChannels += 1;
+    if (!email || !password) {
+      console.warn(
+        `Seed demo user skipped: ${demoUser.role} requires both ${demoUser.emailEnv} and ${demoUser.passwordEnv}.`,
+      );
       continue;
     }
 
-    await prisma.salesChannel.create({
-      data: {
-        name: salesChannel.name,
-        code: salesChannel.code,
-        commissionType: salesChannel.commissionType,
-        commissionValue: salesChannel.commissionValue,
-        active: true,
-        createdById: adminUserId ?? null,
-      },
+    await ensureUser({
+      email,
+      password,
+      firstName: demoUser.firstName,
+      lastName: demoUser.lastName,
+      role: demoUser.role,
     });
-
-    createdSalesChannels += 1;
   }
 
-  console.log(
-    `Seed categories: created ${createdCategories}, skipped ${skippedCategories}.`,
-  );
-  console.log(
-    `Seed sales channels: created ${createdSalesChannels}, skipped ${skippedSalesChannels}.`,
-  );
+  const categoriesByName = await ensureCategories(adminUser.id);
+  const channelsByCode = await ensureSalesChannels(adminUser.id);
+
+  for (const demoProduct of demoProducts) {
+    const categoryId = categoriesByName.get(demoProduct.categoryName) ?? null;
+    const product = await ensureDemoProduct({
+      name: demoProduct.name,
+      description: demoProduct.description,
+      sku: demoProduct.sku,
+      categoryId,
+      unit: demoProduct.unit,
+      stockManagementType: demoProduct.stockManagementType,
+      createdById: adminUser.id,
+    });
+
+    await ensureCurrentCost({
+      productId: product.id,
+      productName: product.name,
+      cost: demoProduct.cost,
+      createdById: adminUser.id,
+    });
+
+    for (const [salesChannelCode, price] of Object.entries(
+      demoProduct.pricesByChannelCode,
+    )) {
+      const salesChannelId = channelsByCode.get(salesChannelCode);
+
+      if (!salesChannelId) {
+        console.warn(
+          `Seed price skipped: channel ${salesChannelCode} not found for ${product.name}.`,
+        );
+        continue;
+      }
+
+      await ensureCurrentPrice({
+        productId: product.id,
+        productName: product.name,
+        salesChannelId,
+        salesChannelCode,
+        price,
+        createdById: adminUser.id,
+      });
+    }
+
+    if (demoProduct.stock !== null) {
+      await ensureInitialStock({
+        productId: product.id,
+        productName: product.name,
+        quantity: demoProduct.stock,
+        createdById: adminUser.id,
+      });
+    }
+  }
 }
 
 main()

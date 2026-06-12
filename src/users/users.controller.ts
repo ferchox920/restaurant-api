@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -46,6 +47,9 @@ export class UsersController {
   @ApiCreatedResponse({
     description: 'Usuario creado correctamente.',
     type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido.',
   })
   @ApiConflictResponse({
     description: 'Ya existe un usuario con el email informado.',
@@ -92,6 +96,9 @@ export class UsersController {
     description: 'Usuario encontrado.',
     type: UserResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Usuario no encontrado.',
   })
@@ -115,6 +122,9 @@ export class UsersController {
   @ApiOkResponse({
     description: 'Usuario actualizado correctamente.',
     type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o id no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Usuario no encontrado.',
@@ -146,6 +156,9 @@ export class UsersController {
     description: 'Usuario desactivado correctamente.',
     type: UserResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Usuario no encontrado.',
   })
@@ -174,6 +187,9 @@ export class UsersController {
   @ApiOkResponse({
     description: 'Usuario reactivado correctamente.',
     type: UserResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Usuario no encontrado.',

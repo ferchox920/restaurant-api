@@ -245,6 +245,9 @@ Se usan los snapshots almacenados en cada linea:
 
 ## Pendiente sugerido para Sprint 10
 
-- Resumen agregado opcional para `inventory-movements`.
-- Exportaciones de reportes.
-- Reportes financieros avanzados y caja.
+- cierre MVP tecnico y documental;
+- revision de Swagger, Docker y variables de entorno;
+- seed minimo funcional y flujo demo documentado;
+- smoke tests y checklist de release local.
+
+Exportaciones, reportes financieros avanzados y caja siguen fuera del MVP en Sprint 10.

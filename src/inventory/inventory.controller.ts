@@ -109,6 +109,9 @@ export class InventoryController {
     description: 'Stock actual del producto.',
     type: InventoryStockResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El productId informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
   })
@@ -141,7 +144,7 @@ export class InventoryController {
     isArray: true,
   })
   @ApiBadRequestResponse({
-    description: 'Filtros de consulta invalidos.',
+    description: 'productId o filtros de consulta invalidos.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -179,7 +182,7 @@ export class InventoryController {
     type: InventoryMovementResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Payload invalido.',
+    description: 'Payload invalido o productId no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -214,7 +217,7 @@ export class InventoryController {
     type: InventoryMovementResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Payload invalido.',
+    description: 'Payload invalido o productId no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -249,7 +252,7 @@ export class InventoryController {
     type: InventoryMovementResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Payload invalido.',
+    description: 'Payload invalido o productId no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -284,7 +287,7 @@ export class InventoryController {
     type: InventoryMovementResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Payload invalido.',
+    description: 'Payload invalido o productId no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -319,7 +322,7 @@ export class InventoryController {
     type: InventoryStockResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'Payload invalido.',
+    description: 'Payload invalido o productId no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',

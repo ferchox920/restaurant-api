@@ -101,6 +101,12 @@ Sprint 2 aplica una politica conservadora para la gestion de usuarios.
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 
+### Metadata tecnica
+
+- `GET /api`
+
+En Sprint 2 este endpoint se utilizaba como bootstrap tecnico. A partir de Sprint 10 se conserva como metadata publica simple del servicio, sin autenticacion y sin exponer secretos.
+
 ### Users
 
 - `POST /api/users`

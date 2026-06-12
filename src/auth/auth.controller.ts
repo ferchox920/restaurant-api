@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
@@ -27,6 +28,9 @@ export class AuthController {
   @ApiOkResponse({
     description: 'Login exitoso.',
     type: AuthResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido.',
   })
   @ApiUnauthorizedResponse({
     description: 'Credenciales invalidas o usuario inactivo.',

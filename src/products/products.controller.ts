@@ -61,6 +61,9 @@ export class ProductsController {
     description: 'Producto creado correctamente.',
     type: ProductResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido.',
+  })
   @ApiConflictResponse({
     description: 'Ya existe un producto con el SKU informado.',
   })
@@ -109,6 +112,10 @@ export class ProductsController {
     type: ProductResponseDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description:
+      'El parametro active debe ser true o false si se envia.',
+  })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
   })
@@ -139,6 +146,9 @@ export class ProductsController {
     description: 'Producto encontrado.',
     type: ProductResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
   })
@@ -168,7 +178,7 @@ export class ProductsController {
   })
   @ApiBadRequestResponse({
     description:
-      'Payload invalido, producto inactivo o intento de enviar un valor no permitido.',
+      'Payload invalido, id no valido, producto inactivo o intento de enviar un valor no permitido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -200,6 +210,9 @@ export class ProductsController {
     type: ProductCostResponseDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
   })
@@ -226,6 +239,9 @@ export class ProductsController {
   @ApiOkResponse({
     description: 'Costo vigente del producto.',
     type: ProductCostResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto o costo vigente no encontrado.',
@@ -256,7 +272,7 @@ export class ProductsController {
   })
   @ApiBadRequestResponse({
     description:
-      'Payload invalido, producto o canal inactivo, o intento de enviar un valor no permitido.',
+      'Payload invalido, id no valido, producto o canal inactivo, o intento de enviar un valor no permitido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto o canal no encontrado.',
@@ -296,7 +312,7 @@ export class ProductsController {
     isArray: true,
   })
   @ApiBadRequestResponse({
-    description: 'channelId debe ser un UUID valido si se envia.',
+    description: 'El id informado o channelId deben ser UUID validos si se envian.',
   })
   @ApiNotFoundResponse({
     description: 'Producto o canal no encontrado.',
@@ -343,7 +359,7 @@ export class ProductsController {
     type: ProductPriceResponseDto,
   })
   @ApiBadRequestResponse({
-    description: 'channelId es obligatorio y debe ser un UUID valido.',
+    description: 'El id informado y channelId deben ser UUID validos.',
   })
   @ApiNotFoundResponse({
     description: 'Producto, canal o precio vigente no encontrado.',
@@ -372,6 +388,9 @@ export class ProductsController {
   @ApiOkResponse({
     description: 'Producto actualizado correctamente.',
     type: ProductResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o id no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
@@ -405,6 +424,9 @@ export class ProductsController {
     description: 'Producto desactivado correctamente.',
     type: ProductResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',
   })
@@ -432,6 +454,9 @@ export class ProductsController {
   @ApiOkResponse({
     description: 'Producto reactivado correctamente.',
     type: ProductResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Producto no encontrado.',

@@ -101,6 +101,9 @@ export class SalesController {
     description: 'Ticket encontrado.',
     type: SaleTicketResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El ticketId informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
@@ -210,6 +213,9 @@ export class SalesController {
     description: 'Linea eliminada correctamente.',
     type: SaleTicketResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'ticketId o itemId no valido.',
+  })
   @ApiNotFoundResponse({ description: 'Ticket o linea no encontrado.' })
   @ApiConflictResponse({
     description: 'El ticket no esta en DRAFT.',
@@ -237,7 +243,7 @@ export class SalesController {
     description: 'Ticket cancelado correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido.' })
+  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description: 'El ticket ya no esta en DRAFT y no puede cancelarse.',
@@ -265,7 +271,7 @@ export class SalesController {
     description: 'Ticket confirmado correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido.' })
+  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description:
@@ -294,7 +300,7 @@ export class SalesController {
     description: 'Venta anulada correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido.' })
+  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description: 'El ticket no esta en CONFIRMED y no puede anularse.',

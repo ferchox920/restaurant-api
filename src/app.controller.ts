@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AppService } from './app.service';
+import { ApiMetadataResponse, AppService } from './app.service';
 
 @ApiTags('app')
 @Controller()
@@ -9,19 +9,24 @@ export class AppController {
 
   @Get()
   @ApiOperation({
-    summary: 'Endpoint base temporal de la API',
+    summary: 'Metadata publica basica de la API',
     description:
-      'Endpoint tecnico temporal para verificar que la API principal responde. No representa una capacidad de negocio.',
+      'Endpoint publico sin autenticacion para identificar el servicio, su version y rutas tecnicas basicas. No reemplaza el health check ni expone secretos.',
   })
   @ApiOkResponse({
-    description: 'Mensaje base de bootstrap de la API.',
+    description: 'Metadata publica basica del servicio.',
     schema: {
       example: {
-        message: 'Restaurat API base initialized',
+        service: 'restaurant-admin-api',
+        version: '0.1.0',
+        status: 'ok',
+        docs: '/docs',
+        health: '/health',
+        environment: 'development',
       },
     },
   })
-  getRoot(): { message: string } {
-    return this.appService.getRootMessage();
+  getRoot(): ApiMetadataResponse {
+    return this.appService.getApiMetadata();
   }
 }

@@ -1,3 +1,5 @@
+import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -5,11 +7,49 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { setupSwagger } from './config/swagger.config';
 
-async function bootstrap(): Promise<void> {
+export function resolveCorsOrigins(
+  rawCorsOrigin: string | undefined,
+): true | string[] {
+  if (!rawCorsOrigin || rawCorsOrigin.trim().length === 0) {
+    return true;
+  }
+
+  if (rawCorsOrigin.trim() === '*') {
+    return true;
+  }
+
+  return rawCorsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+export function validateProductionCors(
+  nodeEnv: string,
+  corsEnabled: boolean,
+  corsOrigin: string | undefined,
+): void {
+  const normalizedCorsOrigin = corsOrigin?.trim();
+
+  if (
+    corsEnabled &&
+    nodeEnv === 'production' &&
+    (!normalizedCorsOrigin || normalizedCorsOrigin === '*')
+  ) {
+    throw new Error(
+      'CORS_ORIGIN must be a specific origin when CORS_ENABLED=true in production.',
+    );
+  }
+}
+
+export async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
+    exclude: [
+      { path: 'health', method: RequestMethod.GET },
+      { path: 'health/readiness', method: RequestMethod.GET },
+    ],
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -19,16 +59,34 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.use(helmet());
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   const configService = app.get(ConfigService);
-  const swaggerEnabled = configService.getOrThrow<boolean>('SWAGGER_ENABLED');
+  const nodeEnv = configService.getOrThrow<string>('NODE_ENV');
+  const corsEnabled = configService.get<boolean>('CORS_ENABLED') ?? false;
+  const corsOrigin = configService.get<string>('CORS_ORIGIN');
+
+  if (corsEnabled) {
+    const normalizedCorsOrigin = corsOrigin?.trim();
+    validateProductionCors(nodeEnv, corsEnabled, normalizedCorsOrigin);
+
+    app.enableCors({
+      origin: resolveCorsOrigins(normalizedCorsOrigin),
+    });
+  }
+
+  const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;
 
   if (swaggerEnabled) {
     setupSwagger(app);
   }
 
-  const port = configService.getOrThrow<number>('PORT');
+  const port = configService.get<number>('PORT') ?? 3000;
   await app.listen(port);
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}

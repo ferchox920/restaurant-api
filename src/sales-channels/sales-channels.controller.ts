@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -50,6 +51,9 @@ export class SalesChannelsController {
     description: 'Canal de venta creado correctamente.',
     type: SalesChannelResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido.',
+  })
   @ApiConflictResponse({
     description: 'Ya existe un canal con el nombre o codigo informado.',
   })
@@ -86,6 +90,9 @@ export class SalesChannelsController {
     type: SalesChannelResponseDto,
     isArray: true,
   })
+  @ApiBadRequestResponse({
+    description: 'El parametro active debe ser true o false si se envia.',
+  })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
   })
@@ -109,6 +116,9 @@ export class SalesChannelsController {
   @ApiOkResponse({
     description: 'Canal de venta encontrado.',
     type: SalesChannelResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Canal de venta no encontrado.',
@@ -136,6 +146,9 @@ export class SalesChannelsController {
   @ApiOkResponse({
     description: 'Canal de venta actualizado correctamente.',
     type: SalesChannelResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o id no valido.',
   })
   @ApiNotFoundResponse({
     description: 'Canal de venta no encontrado.',
@@ -169,6 +182,9 @@ export class SalesChannelsController {
     description: 'Canal de venta desactivado correctamente.',
     type: SalesChannelResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
+  })
   @ApiNotFoundResponse({
     description: 'Canal de venta no encontrado.',
   })
@@ -196,6 +212,9 @@ export class SalesChannelsController {
   @ApiOkResponse({
     description: 'Canal de venta reactivado correctamente.',
     type: SalesChannelResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El id informado no es un UUID valido.',
   })
   @ApiNotFoundResponse({
     description: 'Canal de venta no encontrado.',
