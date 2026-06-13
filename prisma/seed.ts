@@ -173,17 +173,40 @@ async function ensureUser(params: {
 }): Promise<{ id: string; email: string; role: Role }> {
   const existingUser = await prisma.user.findUnique({
     where: { email: params.email },
-    select: { id: true, email: true, role: true },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      firstName: true,
+      lastName: true,
+      active: true,
+      passwordHash: true,
+    },
   });
 
-  if (existingUser) {
-    console.log(
-      `Seed user skipped: ${existingUser.email} already exists with role ${existingUser.role}.`,
-    );
-    return existingUser;
-  }
-
   const passwordHash = await bcrypt.hash(params.password, 10);
+
+  if (existingUser) {
+    await prisma.user.update({
+      where: { id: existingUser.id },
+      data: {
+        passwordHash,
+        firstName: params.firstName,
+        lastName: params.lastName,
+        role: params.role,
+        active: true,
+      },
+    });
+
+    console.log(
+      `Seed user synchronized: ${existingUser.email} with role ${params.role}.`,
+    );
+    return {
+      id: existingUser.id,
+      email: existingUser.email,
+      role: params.role,
+    };
+  }
 
   const createdUser = await prisma.user.create({
     data: {

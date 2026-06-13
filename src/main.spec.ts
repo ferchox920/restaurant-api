@@ -1,4 +1,8 @@
-import { resolveCorsOrigins, validateProductionCors } from './main';
+import {
+  resolveCorsOrigins,
+  shouldEnableCors,
+  validateProductionCors,
+} from './main';
 
 describe('main bootstrap helpers', () => {
   it('allows any origin when CORS origin is empty', () => {
@@ -28,5 +32,15 @@ describe('main bootstrap helpers', () => {
         'https://admin.example.com',
       ),
     ).not.toThrow();
+  });
+
+  it('always enables CORS outside production', () => {
+    expect(shouldEnableCors('development', false)).toBe(true);
+    expect(shouldEnableCors('test', false)).toBe(true);
+  });
+
+  it('keeps production CORS behind the feature flag', () => {
+    expect(shouldEnableCors('production', false)).toBe(false);
+    expect(shouldEnableCors('production', true)).toBe(true);
   });
 });

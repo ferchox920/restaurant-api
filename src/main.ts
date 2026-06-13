@@ -42,6 +42,13 @@ export function validateProductionCors(
   }
 }
 
+export function shouldEnableCors(
+  nodeEnv: string,
+  corsEnabled: boolean,
+): boolean {
+  return nodeEnv === 'production' ? corsEnabled : true;
+}
+
 export async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
@@ -68,7 +75,7 @@ export async function bootstrap(): Promise<void> {
   const corsEnabled = configService.get<boolean>('CORS_ENABLED') ?? false;
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
 
-  if (corsEnabled) {
+  if (shouldEnableCors(nodeEnv, corsEnabled)) {
     const normalizedCorsOrigin = corsOrigin?.trim();
     validateProductionCors(nodeEnv, corsEnabled, normalizedCorsOrigin);
 
