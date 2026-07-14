@@ -1209,16 +1209,8 @@ describe('SalesService', () => {
           unit: 'UNIT',
           active: true,
           stockManagementType: StockManagementType.FINISHED_PRODUCT,
-        }),
-      },
-      productCostHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          cost: new Decimal('2500'),
-        }),
-      },
-      productPriceHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          price: new Decimal('5999.99'),
+          costHistory: [{ cost: new Decimal('2500') }],
+          priceHistory: [{ price: new Decimal('5999.99') }],
         }),
       },
       saleTicketItem: {
@@ -1347,16 +1339,8 @@ describe('SalesService', () => {
           unit: 'UNIT',
           active: true,
           stockManagementType: StockManagementType.NON_STOCKED,
-        }),
-      },
-      productCostHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          cost: new Decimal('0'),
-        }),
-      },
-      productPriceHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          price: new Decimal('300'),
+          costHistory: [{ cost: new Decimal('0') }],
+          priceHistory: [{ price: new Decimal('300') }],
         }),
       },
       saleTicketItem: {
@@ -1384,7 +1368,7 @@ describe('SalesService', () => {
     expect(result.total).toBe('300');
   });
 
-  it('rejects RECIPE_BASED products in Sprint 6', async () => {
+  it('rejects RECIPE_BASED products without stock consumption support', async () => {
     const tx = makeDraftTx({
       product: {
         findUnique: jest.fn().mockResolvedValueOnce({
@@ -1420,15 +1404,9 @@ describe('SalesService', () => {
           unit: 'UNIT',
           active: true,
           stockManagementType: StockManagementType.FINISHED_PRODUCT,
+          costHistory: [{ cost: new Decimal('2500') }],
+          priceHistory: [],
         }),
-      },
-      productCostHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          cost: new Decimal('2500'),
-        }),
-      },
-      productPriceHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce(null),
       },
     });
 
@@ -1454,10 +1432,9 @@ describe('SalesService', () => {
           unit: 'UNIT',
           active: true,
           stockManagementType: StockManagementType.FINISHED_PRODUCT,
+          costHistory: [],
+          priceHistory: [{ price: new Decimal('5999.99') }],
         }),
-      },
-      productCostHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce(null),
       },
     });
 
@@ -1501,16 +1478,8 @@ describe('SalesService', () => {
           unit: 'UNIT',
           active: true,
           stockManagementType: StockManagementType.FINISHED_PRODUCT,
-        }),
-      },
-      productCostHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          cost: new Decimal('2500'),
-        }),
-      },
-      productPriceHistory: {
-        findFirst: jest.fn().mockResolvedValueOnce({
-          price: new Decimal('7000'),
+          costHistory: [{ cost: new Decimal('2500') }],
+          priceHistory: [{ price: new Decimal('7000') }],
         }),
       },
       saleTicketItem: {

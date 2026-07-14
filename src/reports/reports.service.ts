@@ -15,16 +15,46 @@ import { StockReportQueryDto } from './dto/stock-report-query.dto';
 import { StockReportResponseDto } from './dto/stock-report-response.dto';
 import { toInventoryMovementReportResponse } from './mappers/inventory-movement-report.mapper';
 import {
-  addDecimals,
   divideDecimals,
-  multiplyDecimals,
   subtractDecimals,
   toSalesByChannelReportResponse,
   toSalesByProductReportResponse,
   toSalesByUserReportResponse,
 } from './mappers/sales-report.mapper';
-import { zeroDecimal } from './mappers/report-decimal.mapper';
 import { toStockReportResponse } from './mappers/stock-report.mapper';
+
+type SalesByChannelAggregateRow = {
+  salesChannelId: string;
+  salesChannelName: string;
+  salesChannelCode: string;
+  ticketsCount: number;
+  itemsCount: number;
+  quantitySold: Decimal;
+  grossSales: Decimal;
+  historicalCost: Decimal;
+};
+
+type SalesByProductAggregateRow = {
+  productId: string;
+  productNameSnapshot: string;
+  productSkuSnapshot: string | null;
+  productUnitSnapshot: string;
+  quantitySold: Decimal;
+  grossSales: Decimal;
+  historicalCost: Decimal;
+  ticketsCount: number;
+};
+
+type SalesByUserAggregateRow = {
+  userId: string | null;
+  userEmail: string | null;
+  userFullName: string | null;
+  ticketsCount: number;
+  itemsCount: number;
+  quantitySold: Decimal;
+  grossSales: Decimal;
+  historicalCost: Decimal;
+};
 
 @Injectable()
 export class ReportsService {
@@ -85,303 +115,147 @@ export class ReportsService {
   async getSalesByChannelReport(
     query: SalesByChannelQueryDto,
   ): Promise<SalesByChannelReportResponseDto[]> {
-    const tickets = await this.prisma.saleTicket.findMany({
-      where: {
-        status: SaleTicketStatus.CONFIRMED,
-        salesChannelId: query.salesChannelId,
-        confirmedAt: this.buildDateRange(query.from, query.to),
-      },
-      include: {
-        salesChannel: {
-          select: {
-            name: true,
-            code: true,
-          },
-        },
-        items: {
-          select: {
-            ticketId: true,
-            productId: true,
-            productNameSnapshot: true,
-            productSkuSnapshot: true,
-            productUnitSnapshot: true,
-            quantity: true,
-            unitCostSnapshot: true,
-            subtotal: true,
-          },
-        },
-      },
-      orderBy: {
-        confirmedAt: 'desc',
-      },
+    const conditions = this.buildConfirmedSalesSqlConditions({
+      salesChannelId: query.salesChannelId,
+      from: query.from,
+      to: query.to,
     });
+    const rows = await this.prisma.$queryRaw<SalesByChannelAggregateRow[]>(
+      Prisma.sql`
+        SELECT
+          ticket."salesChannelId" AS "salesChannelId",
+          channel."name" AS "salesChannelName",
+          channel."code" AS "salesChannelCode",
+          COUNT(DISTINCT ticket."id")::int AS "ticketsCount",
+          COUNT(item."id")::int AS "itemsCount",
+          COALESCE(SUM(item."quantity"), 0) AS "quantitySold",
+          COALESCE(SUM(item."subtotal"), 0) AS "grossSales",
+          COALESCE(SUM(item."unitCostSnapshot" * item."quantity"), 0) AS "historicalCost"
+        FROM "SaleTicket" ticket
+        INNER JOIN "SalesChannel" channel ON channel."id" = ticket."salesChannelId"
+        INNER JOIN "SaleTicketItem" item ON item."ticketId" = ticket."id"
+        WHERE ${Prisma.join(conditions, ' AND ')}
+        GROUP BY ticket."salesChannelId", channel."name", channel."code"
+        ORDER BY "ticketsCount" DESC, ticket."salesChannelId" ASC
+      `,
+    );
 
-    const grouped = new Map<
-      string,
-      {
-        salesChannelId: string;
-        salesChannelName: string;
-        salesChannelCode: string;
-        ticketsCount: number;
-        itemsCount: number;
-        quantitySold: Decimal;
-        grossSales: Decimal;
-        historicalCost: Decimal;
-      }
-    >();
-
-    for (const ticket of tickets) {
-      const current = grouped.get(ticket.salesChannelId) ?? {
-        salesChannelId: ticket.salesChannelId,
-        salesChannelName: ticket.salesChannel.name,
-        salesChannelCode: ticket.salesChannel.code,
-        ticketsCount: 0,
-        itemsCount: 0,
-        quantitySold: zeroDecimal(),
-        grossSales: zeroDecimal(),
-        historicalCost: zeroDecimal(),
-      };
-
-      current.ticketsCount += 1;
-
-      for (const item of ticket.items) {
-        current.itemsCount += 1;
-        current.quantitySold = addDecimals(current.quantitySold, item.quantity);
-        current.grossSales = addDecimals(current.grossSales, item.subtotal);
-        current.historicalCost = addDecimals(
-          current.historicalCost,
-          multiplyDecimals(item.unitCostSnapshot, item.quantity),
-        );
-      }
-
-      grouped.set(ticket.salesChannelId, current);
-    }
-
-    return [...grouped.values()]
-      .map((item) => {
-        const grossProfit = subtractDecimals(
-          item.grossSales,
-          item.historicalCost,
-        );
-
-        return toSalesByChannelReportResponse({
-          ...item,
-          grossProfit,
-          averageTicket: divideDecimals(item.grossSales, item.ticketsCount),
-        });
-      })
-      .sort((left, right) => right.ticketsCount - left.ticketsCount);
+    return rows.map((row) =>
+      toSalesByChannelReportResponse({
+        ...row,
+        grossProfit: subtractDecimals(row.grossSales, row.historicalCost),
+        averageTicket: divideDecimals(row.grossSales, row.ticketsCount),
+      }),
+    );
   }
 
   async getSalesByProductReport(
     query: SalesByProductQueryDto,
   ): Promise<SalesByProductReportResponseDto[]> {
-    const items = await this.prisma.saleTicketItem.findMany({
-      where: {
-        productId: query.productId,
-        ticket: {
-          status: SaleTicketStatus.CONFIRMED,
-          salesChannelId: query.salesChannelId,
-          confirmedAt: this.buildDateRange(query.from, query.to),
-        },
-      },
-      select: {
-        ticketId: true,
-        productId: true,
-        productNameSnapshot: true,
-        productSkuSnapshot: true,
-        productUnitSnapshot: true,
-        quantity: true,
-        unitCostSnapshot: true,
-        subtotal: true,
-        ticket: {
-          select: {
-            confirmedAt: true,
-          },
-        },
-      },
-      orderBy: {
-        ticket: {
-          confirmedAt: 'desc',
-        },
-      },
+    const conditions = this.buildConfirmedSalesSqlConditions({
+      salesChannelId: query.salesChannelId,
+      productId: query.productId,
+      from: query.from,
+      to: query.to,
     });
+    const rows = await this.prisma.$queryRaw<SalesByProductAggregateRow[]>(
+      Prisma.sql`
+        WITH filtered_items AS (
+          SELECT
+            item."id",
+            item."ticketId",
+            item."productId",
+            item."productNameSnapshot",
+            item."productSkuSnapshot",
+            item."productUnitSnapshot",
+            item."quantity",
+            item."unitCostSnapshot",
+            item."subtotal",
+            ticket."confirmedAt"
+          FROM "SaleTicketItem" item
+          INNER JOIN "SaleTicket" ticket ON ticket."id" = item."ticketId"
+          WHERE ${Prisma.join(conditions, ' AND ')}
+        ),
+        aggregated AS (
+          SELECT
+            "productId",
+            SUM("quantity") AS "quantitySold",
+            SUM("subtotal") AS "grossSales",
+            SUM("unitCostSnapshot" * "quantity") AS "historicalCost",
+            COUNT(DISTINCT "ticketId")::int AS "ticketsCount"
+          FROM filtered_items
+          GROUP BY "productId"
+        ),
+        latest_snapshot AS (
+          SELECT DISTINCT ON ("productId")
+            "productId",
+            "productNameSnapshot",
+            "productSkuSnapshot",
+            "productUnitSnapshot"
+          FROM filtered_items
+          ORDER BY "productId", "confirmedAt" DESC NULLS LAST, "id" DESC
+        )
+        SELECT
+          aggregated."productId",
+          latest_snapshot."productNameSnapshot",
+          latest_snapshot."productSkuSnapshot",
+          latest_snapshot."productUnitSnapshot"::text AS "productUnitSnapshot",
+          aggregated."quantitySold",
+          aggregated."grossSales",
+          aggregated."historicalCost",
+          aggregated."ticketsCount"
+        FROM aggregated
+        INNER JOIN latest_snapshot USING ("productId")
+        ORDER BY aggregated."ticketsCount" DESC, aggregated."productId" ASC
+      `,
+    );
 
-    const grouped = new Map<
-      string,
-      {
-        productId: string;
-        productNameSnapshot: string;
-        productSkuSnapshot: string | null;
-        productUnitSnapshot: string;
-        quantitySold: Decimal;
-        grossSales: Decimal;
-        historicalCost: Decimal;
-        tickets: Set<string>;
-        latestSnapshotAt: number;
-      }
-    >();
-
-    for (const item of items) {
-      const snapshotTimestamp = item.ticket.confirmedAt?.getTime() ?? 0;
-      const current = grouped.get(item.productId) ?? {
-        productId: item.productId,
-        productNameSnapshot: item.productNameSnapshot,
-        productSkuSnapshot: item.productSkuSnapshot,
-        productUnitSnapshot: item.productUnitSnapshot,
-        quantitySold: zeroDecimal(),
-        grossSales: zeroDecimal(),
-        historicalCost: zeroDecimal(),
-        tickets: new Set<string>(),
-        latestSnapshotAt: snapshotTimestamp,
-      };
-
-      if (snapshotTimestamp >= current.latestSnapshotAt) {
-        current.productNameSnapshot = item.productNameSnapshot;
-        current.productSkuSnapshot = item.productSkuSnapshot;
-        current.productUnitSnapshot = item.productUnitSnapshot;
-        current.latestSnapshotAt = snapshotTimestamp;
-      }
-
-      current.quantitySold = addDecimals(current.quantitySold, item.quantity);
-      current.grossSales = addDecimals(current.grossSales, item.subtotal);
-      current.historicalCost = addDecimals(
-        current.historicalCost,
-        multiplyDecimals(item.unitCostSnapshot, item.quantity),
-      );
-      current.tickets.add(item.ticketId);
-      grouped.set(item.productId, current);
-    }
-
-    return [...grouped.values()]
-      .map((item) =>
-        toSalesByProductReportResponse({
-          productId: item.productId,
-          productNameSnapshot: item.productNameSnapshot,
-          productSkuSnapshot: item.productSkuSnapshot,
-          productUnitSnapshot: item.productUnitSnapshot,
-          quantitySold: item.quantitySold,
-          grossSales: item.grossSales,
-          historicalCost: item.historicalCost,
-          grossProfit: subtractDecimals(item.grossSales, item.historicalCost),
-          ticketsCount: item.tickets.size,
-        }),
-      )
-      .sort((left, right) => right.ticketsCount - left.ticketsCount);
+    return rows.map((row) =>
+      toSalesByProductReportResponse({
+        ...row,
+        grossProfit: subtractDecimals(row.grossSales, row.historicalCost),
+      }),
+    );
   }
 
   async getSalesByUserReport(
     query: SalesByUserQueryDto,
   ): Promise<SalesByUserReportResponseDto[]> {
-    const tickets = await this.prisma.saleTicket.findMany({
-      where: {
-        status: SaleTicketStatus.CONFIRMED,
-        salesChannelId: query.salesChannelId,
-        confirmedById: query.userId,
-        confirmedAt: this.buildDateRange(query.from, query.to),
-      },
-      select: {
-        id: true,
-        confirmedById: true,
-        items: {
-          select: {
-            quantity: true,
-            unitCostSnapshot: true,
-            subtotal: true,
-          },
-        },
-      },
-      orderBy: {
-        confirmedAt: 'desc',
-      },
+    const conditions = this.buildConfirmedSalesSqlConditions({
+      salesChannelId: query.salesChannelId,
+      userId: query.userId,
+      from: query.from,
+      to: query.to,
     });
-
-    const userIds = [
-      ...new Set(
-        tickets
-          .map((ticket) => ticket.confirmedById)
-          .filter((userId): userId is string => typeof userId === 'string'),
-      ),
-    ];
-    const users = userIds.length
-      ? await this.prisma.user.findMany({
-          where: {
-            id: {
-              in: userIds,
-            },
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        })
-      : [];
-    const usersById = new Map(
-      users.map((user) => [
-        user.id,
-        {
-          email: user.email,
-          fullName: `${user.firstName} ${user.lastName}`.trim(),
-        },
-      ]),
+    const rows = await this.prisma.$queryRaw<SalesByUserAggregateRow[]>(
+      Prisma.sql`
+        SELECT
+          ticket."confirmedById" AS "userId",
+          actor."email" AS "userEmail",
+          CASE
+            WHEN actor."id" IS NULL THEN NULL
+            ELSE TRIM(CONCAT(actor."firstName", ' ', actor."lastName"))
+          END AS "userFullName",
+          COUNT(DISTINCT ticket."id")::int AS "ticketsCount",
+          COUNT(item."id")::int AS "itemsCount",
+          COALESCE(SUM(item."quantity"), 0) AS "quantitySold",
+          COALESCE(SUM(item."subtotal"), 0) AS "grossSales",
+          COALESCE(SUM(item."unitCostSnapshot" * item."quantity"), 0) AS "historicalCost"
+        FROM "SaleTicket" ticket
+        INNER JOIN "SaleTicketItem" item ON item."ticketId" = ticket."id"
+        LEFT JOIN "User" actor ON actor."id" = ticket."confirmedById"
+        WHERE ${Prisma.join(conditions, ' AND ')}
+        GROUP BY ticket."confirmedById", actor."id", actor."email", actor."firstName", actor."lastName"
+        ORDER BY "ticketsCount" DESC, ticket."confirmedById" ASC NULLS LAST
+      `,
     );
 
-    const grouped = new Map<
-      string,
-      {
-        userId: string | null;
-        ticketsCount: number;
-        itemsCount: number;
-        quantitySold: Decimal;
-        grossSales: Decimal;
-        historicalCost: Decimal;
-      }
-    >();
-
-    for (const ticket of tickets) {
-      const groupKey = ticket.confirmedById ?? 'unknown';
-      const current = grouped.get(groupKey) ?? {
-        userId: ticket.confirmedById,
-        ticketsCount: 0,
-        itemsCount: 0,
-        quantitySold: zeroDecimal(),
-        grossSales: zeroDecimal(),
-        historicalCost: zeroDecimal(),
-      };
-
-      current.ticketsCount += 1;
-      for (const item of ticket.items) {
-        current.itemsCount += 1;
-        current.quantitySold = addDecimals(current.quantitySold, item.quantity);
-        current.grossSales = addDecimals(current.grossSales, item.subtotal);
-        current.historicalCost = addDecimals(
-          current.historicalCost,
-          multiplyDecimals(item.unitCostSnapshot, item.quantity),
-        );
-      }
-
-      grouped.set(groupKey, current);
-    }
-
-    return [...grouped.values()]
-      .map((item) => {
-        const user = item.userId ? usersById.get(item.userId) : undefined;
-
-        return toSalesByUserReportResponse({
-          userId: item.userId,
-          userEmail: user?.email ?? null,
-          userFullName: user?.fullName ?? null,
-          ticketsCount: item.ticketsCount,
-          itemsCount: item.itemsCount,
-          quantitySold: item.quantitySold,
-          grossSales: item.grossSales,
-          historicalCost: item.historicalCost,
-          grossProfit: subtractDecimals(item.grossSales, item.historicalCost),
-        });
-      })
-      .sort((left, right) => right.ticketsCount - left.ticketsCount);
+    return rows.map((row) =>
+      toSalesByUserReportResponse({
+        ...row,
+        grossProfit: subtractDecimals(row.grossSales, row.historicalCost),
+      }),
+    );
   }
 
   async getInventoryMovementsReport(
@@ -462,6 +336,46 @@ export class ReportsService {
       offset,
       total,
     };
+  }
+
+  private buildConfirmedSalesSqlConditions(filters: {
+    salesChannelId?: string;
+    productId?: string;
+    userId?: string;
+    from?: Date;
+    to?: Date;
+  }): Prisma.Sql[] {
+    const conditions = [
+      Prisma.sql`ticket."status" = ${SaleTicketStatus.CONFIRMED}::"SaleTicketStatus"`,
+    ];
+
+    if (filters.salesChannelId) {
+      conditions.push(
+        Prisma.sql`ticket."salesChannelId" = ${filters.salesChannelId}::uuid`,
+      );
+    }
+
+    if (filters.productId) {
+      conditions.push(
+        Prisma.sql`item."productId" = ${filters.productId}::uuid`,
+      );
+    }
+
+    if (filters.userId) {
+      conditions.push(
+        Prisma.sql`ticket."confirmedById" = ${filters.userId}::uuid`,
+      );
+    }
+
+    if (filters.from) {
+      conditions.push(Prisma.sql`ticket."confirmedAt" >= ${filters.from}`);
+    }
+
+    if (filters.to) {
+      conditions.push(Prisma.sql`ticket."confirmedAt" <= ${filters.to}`);
+    }
+
+    return conditions;
   }
 
   private buildDateRange(

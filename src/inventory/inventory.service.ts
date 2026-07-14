@@ -125,10 +125,8 @@ export class InventoryService {
   async getProductInventory(
     productId: string,
   ): Promise<InventoryStockResponseDto> {
-    const product = await this.findProductForRead(productId);
-
     const productWithStock = await this.prisma.product.findUnique({
-      where: { id: product.id },
+      where: { id: productId },
       include: {
         stock: {
           select: {
@@ -145,6 +143,8 @@ export class InventoryService {
         `Product with id "${productId}" was not found.`,
       );
     }
+
+    this.ensureFinishedProduct(productWithStock);
 
     return toInventoryStockResponse(productWithStock);
   }

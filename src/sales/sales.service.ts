@@ -178,7 +178,7 @@ export class SalesService {
         this.ensureTicketStatus(
           existingTicket.status,
           SaleTicketStatus.DRAFT,
-          'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+          'Only sale tickets in DRAFT status can be modified.',
         );
 
         const shouldUpdatePayment =
@@ -237,13 +237,12 @@ export class SalesService {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.ensureDraftTicket(tx, ticketId);
-        const product = await this.findProductForSale(tx, dto.productId);
-        const currentCost = await this.findCurrentCost(tx, dto.productId);
-        const currentPrice = await this.findCurrentPrice(
-          tx,
-          dto.productId,
-          saleTicket.salesChannelId,
-        );
+        const { product, currentCost, currentPrice } =
+          await this.findProductSalesContext(
+            tx,
+            dto.productId,
+            saleTicket.salesChannelId,
+          );
 
         const quantity = new Decimal(dto.quantity);
         const existingItem = await tx.saleTicketItem.findFirst({
@@ -489,7 +488,7 @@ export class SalesService {
     this.ensureTicketStatus(
       existingTicket.status,
       SaleTicketStatus.DRAFT,
-      'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+      'Only sale tickets in DRAFT status can be modified.',
     );
 
     const updatedTicket = await tx.saleTicket.update({
@@ -541,7 +540,7 @@ export class SalesService {
     this.ensureTicketStatus(
       saleTicket.status,
       SaleTicketStatus.DRAFT,
-      'Only sale tickets in DRAFT status can be confirmed in Sprint 7.',
+      'Only sale tickets in DRAFT status can be confirmed.',
     );
 
     if (saleTicket.items.length === 0) {
@@ -630,7 +629,7 @@ export class SalesService {
         this.ensureTicketStatus(
           saleTicket.status,
           SaleTicketStatus.CONFIRMED,
-          'Only sale tickets in CONFIRMED status can be voided in Sprint 7.',
+          'Only sale tickets in CONFIRMED status can be voided.',
         );
 
         this.ensureNoRecipeBasedItems(saleTicket.items);
@@ -712,28 +711,6 @@ export class SalesService {
     return ticket;
   }
 
-  private async ensureTicketIsDraft(ticketId: string): Promise<void> {
-    const ticket = await this.prisma.saleTicket.findUnique({
-      where: { id: ticketId },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
-
-    if (!ticket) {
-      throw new NotFoundException(
-        `Sale ticket with id "${ticketId}" was not found.`,
-      );
-    }
-
-    if (ticket.status !== SaleTicketStatus.DRAFT) {
-      throw new ConflictException(
-        'Only sale tickets in DRAFT status can be modified in Sprint 6.',
-      );
-    }
-  }
-
   private async ensureDraftTicket(
     tx: SalesTransactionClient,
     ticketId: string,
@@ -756,7 +733,7 @@ export class SalesService {
     this.ensureTicketStatus(
       ticket.status,
       SaleTicketStatus.DRAFT,
-      'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+      'Only sale tickets in DRAFT status can be modified.',
     );
 
     return ticket;
@@ -820,9 +797,10 @@ export class SalesService {
     };
   }
 
-  private async findProductForSale(
+  private async findProductSalesContext(
     tx: SalesTransactionClient,
     productId: string,
+    salesChannelId: string,
   ) {
     const product = await tx.product.findUnique({
       where: { id: productId },
@@ -833,6 +811,21 @@ export class SalesService {
         unit: true,
         active: true,
         stockManagementType: true,
+        costHistory: {
+          where: { validTo: null },
+          orderBy: { validFrom: 'desc' },
+          take: 1,
+          select: { cost: true },
+        },
+        priceHistory: {
+          where: {
+            salesChannelId,
+            validTo: null,
+          },
+          orderBy: { validFrom: 'desc' },
+          take: 1,
+          select: { price: true },
+        },
       },
     });
 
@@ -850,23 +843,11 @@ export class SalesService {
 
     if (product.stockManagementType === StockManagementType.RECIPE_BASED) {
       throw new ConflictException(
-        'RECIPE_BASED products cannot be added to sale tickets in Sprint 6 because recipe stock consumption is not implemented yet.',
+        'RECIPE_BASED products cannot be added to sale tickets because recipe stock consumption is not implemented.',
       );
     }
 
-    return product;
-  }
-
-  private async findCurrentCost(tx: SalesTransactionClient, productId: string) {
-    const currentCost = await tx.productCostHistory.findFirst({
-      where: {
-        productId,
-        validTo: null,
-      },
-      orderBy: {
-        validFrom: 'desc',
-      },
-    });
+    const [currentCost] = product.costHistory;
 
     if (!currentCost) {
       throw new NotFoundException(
@@ -874,24 +855,7 @@ export class SalesService {
       );
     }
 
-    return currentCost;
-  }
-
-  private async findCurrentPrice(
-    tx: SalesTransactionClient,
-    productId: string,
-    salesChannelId: string,
-  ) {
-    const currentPrice = await tx.productPriceHistory.findFirst({
-      where: {
-        productId,
-        salesChannelId,
-        validTo: null,
-      },
-      orderBy: {
-        validFrom: 'desc',
-      },
-    });
+    const [currentPrice] = product.priceHistory;
 
     if (!currentPrice) {
       throw new NotFoundException(
@@ -899,7 +863,11 @@ export class SalesService {
       );
     }
 
-    return currentPrice;
+    return {
+      product,
+      currentCost,
+      currentPrice,
+    };
   }
 
   private async recalculateTicketTotals(
@@ -1013,7 +981,7 @@ export class SalesService {
 
     if (hasRecipeBasedItem) {
       throw new ConflictException(
-        'RECIPE_BASED products cannot be confirmed or voided in Sprint 7 because recipe stock consumption is not implemented yet.',
+        'RECIPE_BASED products cannot be confirmed or voided because recipe stock consumption is not implemented.',
       );
     }
   }
@@ -1062,10 +1030,14 @@ export class SalesService {
       );
     }
 
-    return Array.from(grouped.entries()).map(([productId, quantity]) => ({
-      productId,
-      quantity,
-    }));
+    return Array.from(grouped.entries())
+      .sort(([leftProductId], [rightProductId]) =>
+        leftProductId.localeCompare(rightProductId),
+      )
+      .map(([productId, quantity]) => ({
+        productId,
+        quantity,
+      }));
   }
 
   private serializeSaleTicketItem(item: {

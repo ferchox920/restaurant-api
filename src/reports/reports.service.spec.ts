@@ -6,6 +6,7 @@ import { ReportsService } from './reports.service';
 describe('ReportsService', () => {
   let service: ReportsService;
   let prismaService: {
+    $queryRaw: jest.Mock;
     product: {
       findMany: jest.Mock;
     };
@@ -26,6 +27,7 @@ describe('ReportsService', () => {
 
   beforeEach(() => {
     prismaService = {
+      $queryRaw: jest.fn(),
       product: {
         findMany: jest.fn(),
       },
@@ -175,74 +177,26 @@ describe('ReportsService', () => {
     const from = new Date('2026-06-01T00:00:00.000Z');
     const to = new Date('2026-06-10T23:59:59.999Z');
 
-    prismaService.saleTicket.findMany.mockResolvedValueOnce([
+    prismaService.$queryRaw.mockResolvedValueOnce([
       {
-        id: 'ticket-1',
         salesChannelId: 'channel-1',
-        salesChannel: {
-          name: 'PedidosYa',
-          code: 'PEDIDOSYA',
-        },
-        items: [
-          {
-            ticketId: 'ticket-1',
-            productId: 'product-1',
-            productNameSnapshot: 'Hamburguesa clasica',
-            productSkuSnapshot: 'BURGER-001',
-            productUnitSnapshot: 'UNIT',
-            quantity: new Decimal('2'),
-            unitCostSnapshot: new Decimal('5'),
-            subtotal: new Decimal('20'),
-          },
-          {
-            ticketId: 'ticket-1',
-            productId: 'product-2',
-            productNameSnapshot: 'Papas fritas',
-            productSkuSnapshot: 'PAP-001',
-            productUnitSnapshot: 'PORTION',
-            quantity: new Decimal('1'),
-            unitCostSnapshot: new Decimal('3'),
-            subtotal: new Decimal('7'),
-          },
-        ],
+        salesChannelName: 'PedidosYa',
+        salesChannelCode: 'PEDIDOSYA',
+        ticketsCount: 1,
+        itemsCount: 2,
+        quantitySold: new Decimal('3'),
+        grossSales: new Decimal('27'),
+        historicalCost: new Decimal('13'),
       },
     ]);
 
     const result = await service.getSalesByChannelReport({ from, to });
 
-    expect(prismaService.saleTicket.findMany).toHaveBeenCalledWith({
-      where: {
-        status: 'CONFIRMED',
-        salesChannelId: undefined,
-        confirmedAt: {
-          gte: from,
-          lte: to,
-        },
-      },
-      include: {
-        salesChannel: {
-          select: {
-            name: true,
-            code: true,
-          },
-        },
-        items: {
-          select: {
-            ticketId: true,
-            productId: true,
-            productNameSnapshot: true,
-            productSkuSnapshot: true,
-            productUnitSnapshot: true,
-            quantity: true,
-            unitCostSnapshot: true,
-            subtotal: true,
-          },
-        },
-      },
-      orderBy: {
-        confirmedAt: 'desc',
-      },
-    });
+    expect(prismaService.$queryRaw).toHaveBeenCalledTimes(1);
+    const query = prismaService.$queryRaw.mock.calls[0][0] as {
+      values: unknown[];
+    };
+    expect(query.values).toEqual(['CONFIRMED', from, to]);
     expect(result).toEqual([
       {
         salesChannelId: 'channel-1',
@@ -260,49 +214,29 @@ describe('ReportsService', () => {
   });
 
   it('passes salesChannelId filter to confirmed sales by channel query', async () => {
-    prismaService.saleTicket.findMany.mockResolvedValueOnce([]);
+    prismaService.$queryRaw.mockResolvedValueOnce([]);
 
     await service.getSalesByChannelReport({
       salesChannelId: 'channel-1',
     });
 
-    expect(prismaService.saleTicket.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: 'CONFIRMED',
-          salesChannelId: 'channel-1',
-        }),
-      }),
-    );
+    const query = prismaService.$queryRaw.mock.calls[0][0] as {
+      values: unknown[];
+    };
+    expect(query.values).toEqual(['CONFIRMED', 'channel-1']);
   });
 
   it('aggregates sales by product using item snapshots instead of current product data', async () => {
-    prismaService.saleTicketItem.findMany.mockResolvedValueOnce([
+    prismaService.$queryRaw.mockResolvedValueOnce([
       {
-        ticketId: 'ticket-1',
         productId: 'product-1',
         productNameSnapshot: 'Burger v2',
         productSkuSnapshot: 'BURGER-NEW',
         productUnitSnapshot: 'UNIT',
-        quantity: new Decimal('2'),
-        unitCostSnapshot: new Decimal('5'),
-        subtotal: new Decimal('20'),
-        ticket: {
-          confirmedAt: new Date('2026-06-10T10:00:00.000Z'),
-        },
-      },
-      {
-        ticketId: 'ticket-2',
-        productId: 'product-1',
-        productNameSnapshot: 'Burger v1',
-        productSkuSnapshot: 'BURGER-OLD',
-        productUnitSnapshot: 'UNIT',
-        quantity: new Decimal('1'),
-        unitCostSnapshot: new Decimal('5'),
-        subtotal: new Decimal('10'),
-        ticket: {
-          confirmedAt: new Date('2026-06-09T10:00:00.000Z'),
-        },
+        quantitySold: new Decimal('3'),
+        grossSales: new Decimal('30'),
+        historicalCost: new Decimal('15'),
+        ticketsCount: 2,
       },
     ]);
 
@@ -326,7 +260,7 @@ describe('ReportsService', () => {
   it('passes product and sales channel filters to sales by product query', async () => {
     const from = new Date('2026-06-01T00:00:00.000Z');
     const to = new Date('2026-06-10T23:59:59.999Z');
-    prismaService.saleTicketItem.findMany.mockResolvedValueOnce([]);
+    prismaService.$queryRaw.mockResolvedValueOnce([]);
 
     await service.getSalesByProductReport({
       productId: 'product-1',
@@ -335,54 +269,29 @@ describe('ReportsService', () => {
       to,
     });
 
-    expect(prismaService.saleTicketItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          productId: 'product-1',
-          ticket: {
-            status: 'CONFIRMED',
-            salesChannelId: 'channel-1',
-            confirmedAt: {
-              gte: from,
-              lte: to,
-            },
-          },
-        },
-      }),
-    );
+    const query = prismaService.$queryRaw.mock.calls[0][0] as {
+      values: unknown[];
+    };
+    expect(query.values).toEqual([
+      'CONFIRMED',
+      'channel-1',
+      'product-1',
+      from,
+      to,
+    ]);
   });
 
   it('aggregates sales by confirmed user and resolves user profile data', async () => {
-    prismaService.saleTicket.findMany.mockResolvedValueOnce([
+    prismaService.$queryRaw.mockResolvedValueOnce([
       {
-        id: 'ticket-1',
-        confirmedById: 'user-1',
-        items: [
-          {
-            quantity: new Decimal('2'),
-            unitCostSnapshot: new Decimal('5'),
-            subtotal: new Decimal('20'),
-          },
-        ],
-      },
-      {
-        id: 'ticket-2',
-        confirmedById: 'user-1',
-        items: [
-          {
-            quantity: new Decimal('1'),
-            unitCostSnapshot: new Decimal('3'),
-            subtotal: new Decimal('7'),
-          },
-        ],
-      },
-    ]);
-    prismaService.user.findMany.mockResolvedValueOnce([
-      {
-        id: 'user-1',
-        email: 'manager@example.com',
-        firstName: 'Ada',
-        lastName: 'Lovelace',
+        userId: 'user-1',
+        userEmail: 'manager@example.com',
+        userFullName: 'Ada Lovelace',
+        ticketsCount: 2,
+        itemsCount: 2,
+        quantitySold: new Decimal('3'),
+        grossSales: new Decimal('27'),
+        historicalCost: new Decimal('13'),
       },
     ]);
 
@@ -404,23 +313,21 @@ describe('ReportsService', () => {
   });
 
   it('keeps tickets without confirmedById grouped as unknown user bucket', async () => {
-    prismaService.saleTicket.findMany.mockResolvedValueOnce([
+    prismaService.$queryRaw.mockResolvedValueOnce([
       {
-        id: 'ticket-1',
-        confirmedById: null,
-        items: [
-          {
-            quantity: new Decimal('1'),
-            unitCostSnapshot: new Decimal('2'),
-            subtotal: new Decimal('5'),
-          },
-        ],
+        userId: null,
+        userEmail: null,
+        userFullName: null,
+        ticketsCount: 1,
+        itemsCount: 1,
+        quantitySold: new Decimal('1'),
+        grossSales: new Decimal('5'),
+        historicalCost: new Decimal('2'),
       },
     ]);
 
     const result = await service.getSalesByUserReport({});
 
-    expect(prismaService.user.findMany).not.toHaveBeenCalled();
     expect(result).toEqual([
       {
         userId: null,
