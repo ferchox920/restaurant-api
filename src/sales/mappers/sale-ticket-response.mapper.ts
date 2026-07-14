@@ -1,6 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library';
 import { SaleTicketResponseDto } from '../dto/sale-ticket-response.dto';
-import { SaleTicketStatus } from '../sales.enums';
+import { SalePaymentMethod, SaleTicketStatus } from '../sales.enums';
 import { toSaleTicketItemResponse } from './sale-ticket-item-response.mapper';
 
 export type SaleTicketRecord = {
@@ -8,6 +8,9 @@ export type SaleTicketRecord = {
   ticketNumber: number;
   salesChannelId: string;
   status: SaleTicketStatus;
+  paymentMethod: SalePaymentMethod | null;
+  paymentBankId: string | null;
+  paymentBankNameSnapshot: string | null;
   subtotal: Decimal;
   discountTotal: Decimal;
   commissionTotal: Decimal;
@@ -27,6 +30,9 @@ export type SaleTicketRecord = {
   salesChannel: {
     name: string;
   } | null;
+  paymentBank: {
+    name: string;
+  } | null;
   items: Array<Parameters<typeof toSaleTicketItemResponse>[0]>;
 };
 
@@ -39,6 +45,10 @@ export function toSaleTicketResponse(
     salesChannelId: ticket.salesChannelId,
     salesChannelName: ticket.salesChannel?.name ?? null,
     status: ticket.status,
+    paymentMethod: ticket.paymentMethod,
+    paymentBankId: ticket.paymentBankId,
+    paymentBankName: ticket.paymentBank?.name ?? null,
+    paymentBankNameSnapshot: ticket.paymentBankNameSnapshot,
     subtotal: ticket.subtotal.toString(),
     discountTotal: ticket.discountTotal.toString(),
     commissionTotal: ticket.commissionTotal.toString(),

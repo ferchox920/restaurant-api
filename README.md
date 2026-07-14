@@ -10,6 +10,8 @@ El proyecto llega a Sprint 10 con foco en cierre tecnico y documental del MVP. L
 - gestionar usuarios;
 - gestionar categorias;
 - gestionar canales de venta;
+- gestionar mesas del local;
+- abrir y cancelar ordenes de mesa;
 - gestionar productos;
 - definir costos historicos por producto;
 - definir precios historicos por producto y canal;
@@ -27,6 +29,8 @@ El proyecto llega a Sprint 10 con foco en cierre tecnico y documental del MVP. L
 - `users`
 - `categories`
 - `sales-channels`
+- `tables`
+- `table-orders`
 - `products`
 - `inventory`
 - `sales`
@@ -116,25 +120,27 @@ Notas de configuracion:
 
 Estas variables deben configurarse explicitamente antes de desplegar en Railway o cualquier entorno publico.
 
-| Variable | Obligatoria | Proposito | Ejemplo seguro | Local vs produccion |
-| --- | --- | --- | --- | --- |
-| `PORT` | No | Puerto HTTP de la API. Si falta, usa `3000`. | `3000` | En Railway puede ser inyectado por la plataforma. |
-| `NODE_ENV` | Si | Determina el entorno de ejecucion. Solo acepta `development`, `test` o `production`. | `production` | En produccion debe ser `production`. |
-| `DATABASE_URL` | Si | Cadena de conexion a PostgreSQL usada por Prisma. | `postgresql://app_user:strong_password@db-host:5432/restaurant_admin?schema=public` | Local apunta a PostgreSQL propio; en Railway debe usarse la URL entregada por la plataforma. |
-| `JWT_SECRET` | Si | Secreto usado para firmar JWT. | `use_a_long_random_secret_value_here` | En produccion debe ser unico, largo y no reutilizado. |
-| `JWT_EXPIRES_IN` | Si | Duracion de expiracion del access token. | `1d` | Puede mantenerse igual entre local y produccion si la politica no cambia. |
-| `SWAGGER_ENABLED` | Si | Publica o no la documentacion en `/docs`. | `false` | En produccion publica se recomienda `false`. |
-| `CORS_ENABLED` | Si | Activa o desactiva CORS. | `true` | En local puede permanecer `false` o abrirse para pruebas; en produccion debe decidirse explicitamente. |
-| `CORS_ORIGIN` | No en general, pero requerido si `CORS_ENABLED=true` en `production` | Lista CSV de origenes permitidos o un origen unico. | `https://admin.example.com` | En local puede ser `http://localhost:3000`; en produccion no debe quedar vacio ni `*` si CORS esta habilitado. |
-| `ADMIN_EMAIL` | Si | Usuario inicial del seed. | `admin@example.com` | En produccion debe reemplazarse por una cuenta operativa real. |
-| `ADMIN_PASSWORD` | Si | Password inicial del seed. | `replace_with_demo_admin_password` | En produccion no usar credenciales demo y rotarlas despues del alta inicial. |
-| `ADMIN_FIRST_NAME` | Si | Nombre del usuario admin inicial. | `System` | Puede variar segun operacion. |
-| `ADMIN_LAST_NAME` | Si | Apellido del usuario admin inicial. | `Admin` | Puede variar segun operacion. |
-| `MANAGER_EMAIL`, `MANAGER_PASSWORD`, `CASHIER_EMAIL`, `CASHIER_PASSWORD`, `AUDITOR_EMAIL`, `AUDITOR_PASSWORD` | No | Usuarios demo opcionales del seed. | vacio | En produccion se recomienda dejarlas vacias y crear usuarios reales por API. |
+| Variable                                                                                                      | Obligatoria                                                          | Proposito                                                                            | Ejemplo seguro                                                                      | Local vs produccion                                                                                            |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `PORT`                                                                                                        | No                                                                   | Puerto HTTP de la API. Si falta, usa `3000`.                                         | `3000`                                                                              | En Railway puede ser inyectado por la plataforma.                                                              |
+| `TRUST_PROXY_HOPS`                                                                                            | No                                                                   | Cantidad de proxies confiables delante de la API para resolver la IP real.           | `1`                                                                                 | Usar `0` en local y configurar la cantidad real en el proveedor de hosting.                                    |
+| `NODE_ENV`                                                                                                    | Si                                                                   | Determina el entorno de ejecucion. Solo acepta `development`, `test` o `production`. | `production`                                                                        | En produccion debe ser `production`.                                                                           |
+| `DATABASE_URL`                                                                                                | Si                                                                   | Cadena de conexion a PostgreSQL usada por Prisma.                                    | `postgresql://app_user:strong_password@db-host:5432/restaurant_admin?schema=public` | Local apunta a PostgreSQL propio; en Railway debe usarse la URL entregada por la plataforma.                   |
+| `JWT_SECRET`                                                                                                  | Si                                                                   | Secreto usado para firmar JWT.                                                       | `use_a_long_random_secret_value_here`                                               | En produccion debe ser unico, largo y no reutilizado.                                                          |
+| `JWT_EXPIRES_IN`                                                                                              | Si                                                                   | Duracion de expiracion del access token.                                             | `1d`                                                                                | Puede mantenerse igual entre local y produccion si la politica no cambia.                                      |
+| `SWAGGER_ENABLED`                                                                                             | Si                                                                   | Publica o no la documentacion en `/docs`.                                            | `false`                                                                             | En produccion publica se recomienda `false`.                                                                   |
+| `CORS_ENABLED`                                                                                                | Si                                                                   | Activa o desactiva CORS.                                                             | `true`                                                                              | En local puede permanecer `false` o abrirse para pruebas; en produccion debe decidirse explicitamente.         |
+| `CORS_ORIGIN`                                                                                                 | No en general, pero requerido si `CORS_ENABLED=true` en `production` | Lista CSV de origenes permitidos o un origen unico.                                  | `https://admin.example.com`                                                         | En local puede ser `http://localhost:3000`; en produccion no debe quedar vacio ni `*` si CORS esta habilitado. |
+| `ADMIN_EMAIL`                                                                                                 | Si                                                                   | Usuario inicial del seed.                                                            | `admin@example.com`                                                                 | En produccion debe reemplazarse por una cuenta operativa real.                                                 |
+| `ADMIN_PASSWORD`                                                                                              | Si                                                                   | Password inicial del seed.                                                           | `replace_with_demo_admin_password`                                                  | En produccion no usar credenciales demo y rotarlas despues del alta inicial.                                   |
+| `ADMIN_FIRST_NAME`                                                                                            | Si                                                                   | Nombre del usuario admin inicial.                                                    | `System`                                                                            | Puede variar segun operacion.                                                                                  |
+| `ADMIN_LAST_NAME`                                                                                             | Si                                                                   | Apellido del usuario admin inicial.                                                  | `Admin`                                                                             | Puede variar segun operacion.                                                                                  |
+| `MANAGER_EMAIL`, `MANAGER_PASSWORD`, `CASHIER_EMAIL`, `CASHIER_PASSWORD`, `AUDITOR_EMAIL`, `AUDITOR_PASSWORD` | No                                                                   | Usuarios demo opcionales del seed.                                                   | vacio                                                                               | En produccion se recomienda dejarlas vacias y crear usuarios reales por API.                                   |
 
 Notas productivas:
 
 - Si `DATABASE_URL` o `JWT_SECRET` faltan, la app falla al iniciar.
+- En produccion, `JWT_SECRET` debe tener al menos 32 caracteres.
 - Si `CORS_ENABLED=true` en `NODE_ENV=production`, `CORS_ORIGIN` debe contener dominios explicitos.
 - No se valida una variable `DATABASE_SSL`; en Railway debe usarse la conexion PostgreSQL provista por la plataforma.
 
@@ -217,7 +223,12 @@ Endpoint de readiness con verificacion simple de base de datos. No requiere aute
 - En `development` y `test`, si CORS esta habilitado y `CORS_ORIGIN` queda vacio, la app acepta cualquier origen.
 - En `production`, `CORS_ENABLED=true` requiere `CORS_ORIGIN` especifico.
 - Sprint 11 agrega `helmet` y limita payloads JSON/urlencoded a `1mb`.
-- Rate limiting queda recomendado como hardening futuro y no se implementa todavia.
+- La API limita cada IP a 100 solicitudes por minuto y el login a 5 intentos por minuto.
+- Si la API se publica detras de un proxy, `TRUST_PROXY_HOPS` debe reflejar la topologia real para que el limite use la IP del cliente.
+
+## Paginacion
+
+Los listados operativos y los historiales aceptan `limit` y `offset`. El valor predeterminado de `limit` es `50` y el maximo permitido es `100`.
 
 ## Endpoints principales por modulo
 
@@ -252,6 +263,27 @@ Endpoint de readiness con verificacion simple de base de datos. No requiere aute
 - `PATCH /api/sales-channels/:id`
 - `PATCH /api/sales-channels/:id/deactivate`
 - `PATCH /api/sales-channels/:id/reactivate`
+
+### Tables
+
+- `POST /api/tables`
+- `GET /api/tables`
+- `GET /api/tables/:id`
+- `PATCH /api/tables/:id`
+- `PATCH /api/tables/:id/deactivate`
+- `PATCH /api/tables/:id/reactivate`
+
+### Table Orders
+
+- `GET /api/table-orders`
+- `POST /api/tables/:tableId/orders/open`
+- `GET /api/tables/:tableId/orders/current`
+- `GET /api/table-orders/:id`
+- `POST /api/table-orders/:id/items`
+- `PATCH /api/table-orders/:id/items/:itemId`
+- `DELETE /api/table-orders/:id/items/:itemId`
+- `POST /api/table-orders/:id/cancel`
+- `POST /api/table-orders/:id/close`
 
 ### Products
 
@@ -321,6 +353,7 @@ Endpoint de readiness con verificacion simple de base de datos. No requiere aute
   - `Cargo de delivery`
 - costos demo por producto;
 - precios demo por canal para `Mostrador`, `PedidosYa`, `Uber Eats` y `WhatsApp`;
+- mesas demo `M01`, `M02`, `M03`, `Barra 01` y `Terraza 01`;
 - stock inicial consistente para productos inventariables:
   - hamburguesa `10`
   - papas `10`

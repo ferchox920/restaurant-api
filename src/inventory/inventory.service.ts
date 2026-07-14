@@ -7,6 +7,7 @@ import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import { runSerializableTransaction } from '../database/transaction';
 import { StockManagementType } from '../products/product.enums';
 import { InventoryMovementsQueryDto } from './dto/inventory-movements-query.dto';
 import { InventoryMovementResponseDto } from './dto/inventory-movement-response.dto';
@@ -20,7 +21,6 @@ import { WasteDto } from './dto/waste.dto';
 import {
   InventoryMovementType,
   InventoryReferenceType,
-  InventoryStockStatus,
 } from './inventory.enums';
 import { toInventoryMovementResponse } from './mappers/inventory-movement-response.mapper';
 import { toInventoryStockResponse } from './mappers/inventory-stock-response.mapper';
@@ -68,7 +68,8 @@ export class InventoryService {
     const products = await this.prisma.product.findMany({
       where: {
         stockManagementType: StockManagementType.FINISHED_PRODUCT,
-        active: typeof filters.active === 'boolean' ? filters.active : undefined,
+        active:
+          typeof filters.active === 'boolean' ? filters.active : undefined,
         OR: filters.search
           ? [
               {
@@ -98,6 +99,12 @@ export class InventoryService {
       orderBy: {
         name: 'asc',
       },
+      ...(!filters.stockStatus && filters.limit !== undefined
+        ? { take: filters.limit }
+        : {}),
+      ...(!filters.stockStatus && filters.offset !== undefined
+        ? { skip: filters.offset }
+        : {}),
     });
 
     const inventory = products.map(toInventoryStockResponse);
@@ -106,13 +113,18 @@ export class InventoryService {
       return inventory;
     }
 
-    return inventory.filter(
+    const filteredInventory = inventory.filter(
       (item: InventoryStockResponseDto) =>
         item.stockStatus === filters.stockStatus,
     );
+
+    const offset = filters.offset ?? 0;
+    return filteredInventory.slice(offset, offset + (filters.limit ?? 50));
   }
 
-  async getProductInventory(productId: string): Promise<InventoryStockResponseDto> {
+  async getProductInventory(
+    productId: string,
+  ): Promise<InventoryStockResponseDto> {
     const product = await this.findProductForRead(productId);
 
     const productWithStock = await this.prisma.product.findUnique({
@@ -162,6 +174,8 @@ export class InventoryService {
       orderBy: {
         createdAt: 'desc',
       },
+      ...(filters.limit !== undefined ? { take: filters.limit } : {}),
+      ...(filters.offset !== undefined ? { skip: filters.offset } : {}),
     });
 
     return movements.map(toInventoryMovementResponse);
@@ -224,7 +238,10 @@ export class InventoryService {
 
     const movement = await this.runInTransaction(
       async (tx: InventoryTransactionClient) => {
-        const stock = await this.getOrCreateProductStockForUpdate(tx, productId);
+        const stock = await this.getOrCreateProductStockForUpdate(
+          tx,
+          productId,
+        );
         const previousStock = stock.currentStock;
         const newStock = new Decimal(dto.newStock);
 
@@ -464,7 +481,9 @@ export class InventoryService {
     });
   }
 
-  private async findProductForRead(productId: string): Promise<ProductForInventory> {
+  private async findProductForRead(
+    productId: string,
+  ): Promise<ProductForInventory> {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       select: {
@@ -526,7 +545,10 @@ export class InventoryService {
       insufficientStockMessage?: string;
     },
   ) {
-    const stock = await this.getOrCreateProductStockForUpdate(tx, params.productId);
+    const stock = await this.getOrCreateProductStockForUpdate(
+      tx,
+      params.productId,
+    );
     const previousStock = stock.currentStock;
     const quantity = new Decimal(params.quantity);
     const newStock =
@@ -637,23 +659,6 @@ export class InventoryService {
   private runInTransaction<T>(
     callback: (tx: InventoryTransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.prisma.$transaction) {
-      return callback(this.prisma as unknown as InventoryTransactionClient);
-    }
-
-    const transactionResult = this.prisma.$transaction(callback);
-
-    if (
-      !transactionResult ||
-      typeof (transactionResult as Promise<T>).then !== 'function'
-    ) {
-      return callback(this.prisma as unknown as InventoryTransactionClient);
-    }
-
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as InventoryTransactionClient)
-          : result,
-      );
+    return runSerializableTransaction(this.prisma, callback);
   }
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { SalePaymentMethod } from '../sales.enums';
 
 export class CreateSaleTicketDto {
   @ApiProperty({
@@ -13,4 +14,21 @@ export class CreateSaleTicketDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    enum: SalePaymentMethod,
+    example: SalePaymentMethod.CASH,
+  })
+  @IsOptional()
+  @IsEnum(SalePaymentMethod)
+  paymentMethod?: SalePaymentMethod;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    example: '5b4c0bb0-5a94-4fe0-838b-6c809aaf65af',
+    description: 'Obligatorio cuando paymentMethod es TRANSFER.',
+  })
+  @IsOptional()
+  @IsUUID()
+  paymentBankId?: string;
 }

@@ -53,6 +53,20 @@ const initialSalesChannels = [
   },
 ] as const;
 
+const initialPaymentBanks = [
+  'Banco Galicia',
+  'Banco Nacion',
+  'Banco Provincia',
+] as const;
+
+const initialRestaurantTables = [
+  { code: 'M01', name: 'Mesa 1', area: 'Salon', capacity: 4 },
+  { code: 'M02', name: 'Mesa 2', area: 'Salon', capacity: 4 },
+  { code: 'M03', name: 'Mesa 3', area: 'Salon', capacity: 2 },
+  { code: 'Barra 01', name: 'Barra 01', area: 'Barra', capacity: 2 },
+  { code: 'Terraza 01', name: 'Terraza 01', area: 'Terraza', capacity: 4 },
+] as const;
+
 const demoUsers = [
   {
     role: Role.MANAGER,
@@ -89,6 +103,7 @@ const demoProducts = [
     stock: 10,
     pricesByChannelCode: {
       COUNTER: 8000,
+      DINING_ROOM: 8000,
       PEDIDOS_YA: 9200,
       UBER_EATS: 9400,
       WHATSAPP: 8200,
@@ -105,6 +120,7 @@ const demoProducts = [
     stock: 10,
     pricesByChannelCode: {
       COUNTER: 3200,
+      DINING_ROOM: 3200,
       PEDIDOS_YA: 3700,
       UBER_EATS: 3800,
       WHATSAPP: 3300,
@@ -121,6 +137,7 @@ const demoProducts = [
     stock: 20,
     pricesByChannelCode: {
       COUNTER: 2500,
+      DINING_ROOM: 2500,
       PEDIDOS_YA: 2900,
       UBER_EATS: 3000,
       WHATSAPP: 2600,
@@ -137,6 +154,7 @@ const demoProducts = [
     stock: null,
     pricesByChannelCode: {
       COUNTER: 0,
+      DINING_ROOM: 0,
       PEDIDOS_YA: 1200,
       UBER_EATS: 1200,
       WHATSAPP: 800,
@@ -312,6 +330,73 @@ async function ensureSalesChannels(
   );
 
   return channelsByCode;
+}
+
+async function ensurePaymentBanks(createdById: string | null): Promise<void> {
+  let createdPaymentBanks = 0;
+  let skippedPaymentBanks = 0;
+
+  for (const name of initialPaymentBanks) {
+    const existingPaymentBank = await prisma.paymentBank.findUnique({
+      where: { name },
+      select: { id: true },
+    });
+
+    if (existingPaymentBank) {
+      skippedPaymentBanks += 1;
+      continue;
+    }
+
+    await prisma.paymentBank.create({
+      data: {
+        name,
+        active: true,
+        createdById,
+      },
+      select: { id: true },
+    });
+
+    createdPaymentBanks += 1;
+  }
+
+  console.log(
+    `Seed payment banks: created ${createdPaymentBanks}, skipped ${skippedPaymentBanks}.`,
+  );
+}
+
+async function ensureRestaurantTables(createdById: string | null): Promise<void> {
+  let createdTables = 0;
+  let skippedTables = 0;
+
+  for (const table of initialRestaurantTables) {
+    const existingTable = await prisma.restaurantTable.findUnique({
+      where: { code: table.code },
+      select: { id: true },
+    });
+
+    if (existingTable) {
+      skippedTables += 1;
+      continue;
+    }
+
+    await prisma.restaurantTable.create({
+      data: {
+        code: table.code,
+        name: table.name,
+        area: table.area,
+        capacity: table.capacity,
+        active: true,
+        createdById,
+      },
+      select: { id: true },
+    });
+
+    createdTables += 1;
+  }
+
+  console.log(
+    `Seed restaurant tables: created ${createdTables}, skipped ${skippedTables}.`,
+  );
 }
 
 async function ensureDemoProduct(params: {
@@ -526,6 +611,8 @@ async function main(): Promise<void> {
 
   const categoriesByName = await ensureCategories(adminUser.id);
   const channelsByCode = await ensureSalesChannels(adminUser.id);
+  await ensurePaymentBanks(adminUser.id);
+  await ensureRestaurantTables(adminUser.id);
 
   for (const demoProduct of demoProducts) {
     const categoryId = categoriesByName.get(demoProduct.categoryName) ?? null;

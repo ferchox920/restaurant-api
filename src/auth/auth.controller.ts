@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -21,9 +29,11 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Iniciar sesion con email y password',
-    description: 'No requiere Bearer token. Devuelve un JWT y el usuario autenticado.',
+    description:
+      'No requiere Bearer token. Devuelve un JWT y el usuario autenticado.',
   })
   @ApiOkResponse({
     description: 'Login exitoso.',
@@ -45,7 +55,8 @@ export class AuthController {
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: 'Obtener usuario autenticado',
-    description: 'Requiere Bearer token valido y devuelve el usuario autenticado.',
+    description:
+      'Requiere Bearer token valido y devuelve el usuario autenticado.',
   })
   @ApiOkResponse({
     description: 'Usuario autenticado.',

@@ -72,6 +72,12 @@ export async function bootstrap(): Promise<void> {
 
   const configService = app.get(ConfigService);
   const nodeEnv = configService.getOrThrow<string>('NODE_ENV');
+  const trustProxyHops = configService.get<number>('TRUST_PROXY_HOPS') ?? 0;
+
+  if (trustProxyHops > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+  }
+
   const corsEnabled = configService.get<boolean>('CORS_ENABLED') ?? false;
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
 

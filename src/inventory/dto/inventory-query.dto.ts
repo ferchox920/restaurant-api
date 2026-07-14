@@ -1,12 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import {
   InventoryStockStatus,
   type InventoryStockStatus as InventoryStockStatusValue,
 } from '../inventory.enums';
 
-export class InventoryQueryDto {
+export class InventoryQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     type: Boolean,
     description:

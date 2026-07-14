@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CommissionType } from '../sales-channel.enums';
+import { SalesChannelSubTaxResponseDto } from './sales-channel-sub-tax.dto';
 
 export class SalesChannelResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -22,6 +23,9 @@ export class SalesChannelResponseDto {
 
   @ApiProperty({ example: 18 })
   commissionValue!: number;
+
+  @ApiProperty({ type: SalesChannelSubTaxResponseDto, isArray: true })
+  subTaxes!: SalesChannelSubTaxResponseDto[];
 
   @ApiProperty({ example: true })
   active!: boolean;

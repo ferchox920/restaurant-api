@@ -8,6 +8,9 @@ describe('toSaleTicketResponse', () => {
       ticketNumber: 1001,
       salesChannelId: 'channel-1',
       status: 'DRAFT',
+      paymentMethod: 'TRANSFER',
+      paymentBankId: 'bank-1',
+      paymentBankNameSnapshot: 'Banco Galicia',
       subtotal: new Decimal('11999.98'),
       discountTotal: new Decimal('0'),
       commissionTotal: new Decimal('0'),
@@ -26,6 +29,9 @@ describe('toSaleTicketResponse', () => {
       voidedAt: null,
       salesChannel: {
         name: 'PedidosYa',
+      },
+      paymentBank: {
+        name: 'Banco Galicia',
       },
       items: [
         {
@@ -48,6 +54,10 @@ describe('toSaleTicketResponse', () => {
     expect(result).toMatchObject({
       ticketNumber: 1001,
       salesChannelName: 'PedidosYa',
+      paymentMethod: 'TRANSFER',
+      paymentBankId: 'bank-1',
+      paymentBankName: 'Banco Galicia',
+      paymentBankNameSnapshot: 'Banco Galicia',
       subtotal: '11999.98',
       total: '11999.98',
       confirmedById: 'user-2',

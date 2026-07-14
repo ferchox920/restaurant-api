@@ -55,6 +55,17 @@ enum SaleTicketStatus {
   VOIDED
 }
 
+enum RestaurantTableOrderStatus {
+  OPEN
+  CANCELLED
+  CLOSED
+}
+
+enum SalePaymentMethod {
+  CASH
+  TRANSFER
+}
+
 enum AuditAction {
   USER_CREATED
   USER_UPDATED
@@ -81,6 +92,10 @@ enum AuditAction {
   INVENTORY_SALE_OUT
   INVENTORY_VOID_REVERSAL
   INVENTORY_MINIMUM_STOCK_UPDATED
+  PAYMENT_BANK_CREATED
+  PAYMENT_BANK_UPDATED
+  PAYMENT_BANK_DEACTIVATED
+  PAYMENT_BANK_REACTIVATED
   SALE_TICKET_CREATED
   SALE_TICKET_UPDATED
   SALE_TICKET_CANCELLED
@@ -89,6 +104,13 @@ enum AuditAction {
   SALE_TICKET_ITEM_REMOVED
   SALE_TICKET_CONFIRMED
   SALE_TICKET_VOIDED
+  RESTAURANT_TABLE_CREATED
+  RESTAURANT_TABLE_UPDATED
+  RESTAURANT_TABLE_DEACTIVATED
+  RESTAURANT_TABLE_REACTIVATED
+  TABLE_ORDER_OPENED
+  TABLE_ORDER_CANCELLED
+  TABLE_ORDER_CLOSED
 }
 
 enum AuditEntityType {
@@ -100,23 +122,30 @@ enum AuditEntityType {
   PRODUCT_PRICE_HISTORY
   PRODUCT_STOCK
   INVENTORY_MOVEMENT
+  PAYMENT_BANK
   SALE_TICKET
   SALE_TICKET_ITEM
+  RESTAURANT_TABLE
+  TABLE_ORDER
   SYSTEM
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  role         Role
-  active       Boolean   @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  auditLogs    AuditLog[] @relation("AuditLogActor")
+  id                   String            @id @default(uuid()) @db.Uuid
+  email                String            @unique
+  passwordHash         String
+  firstName            String
+  lastName             String
+  role                 Role
+  active               Boolean           @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  auditLogs            AuditLog[]        @relation("AuditLogActor")
+  createdTables        RestaurantTable[] @relation("RestaurantTableCreatedBy")
+  openedTableOrders    TableOrder[]      @relation("TableOrderOpenedBy")
+  cancelledTableOrders TableOrder[]      @relation("TableOrderCancelledBy")
+  closedTableOrders    TableOrder[]      @relation("TableOrderClosedBy")
 }
 
 model Category {
@@ -141,8 +170,33 @@ model SalesChannel {
   createdById     String?               @db.Uuid
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
+  subTaxes        SalesChannelSubTax[]
   productPrices   ProductPriceHistory[]
   saleTickets     SaleTicket[]
+}
+
+model SalesChannelSubTax {
+  id             String       @id @default(uuid()) @db.Uuid
+  salesChannelId String       @db.Uuid
+  name           String
+  percentage     Decimal      @db.Decimal(5, 2)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  salesChannel   SalesChannel @relation(fields: [salesChannelId], references: [id], onDelete: Cascade)
+
+  @@unique([salesChannelId, name])
+  @@index([salesChannelId])
+}
+
+model PaymentBank {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique
+  description String?
+  active      Boolean      @default(true)
+  createdById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  saleTickets SaleTicket[]
 }
 
 model Product {
@@ -193,6 +247,8 @@ model InventoryMovement {
   @@index([movementType])
   @@index([createdAt])
   @@index([productId, createdAt])
+  @@index([referenceType, createdAt])
+  @@index([createdById, createdAt])
 }
 
 model ProductCostHistory {
@@ -226,33 +282,42 @@ model ProductPriceHistory {
 }
 
 model SaleTicket {
-  id                 String           @id @default(uuid()) @db.Uuid
-  ticketNumber       Int              @unique @default(autoincrement())
-  salesChannelId     String           @db.Uuid
-  status             SaleTicketStatus @default(DRAFT)
-  subtotal           Decimal          @default(0) @db.Decimal(10, 2)
-  discountTotal      Decimal          @default(0) @db.Decimal(10, 2)
-  commissionTotal    Decimal          @default(0) @db.Decimal(10, 2)
-  total              Decimal          @default(0) @db.Decimal(10, 2)
-  notes              String?
-  createdById        String?          @db.Uuid
-  confirmedById      String?          @db.Uuid
-  cancelledById      String?          @db.Uuid
-  voidedById         String?          @db.Uuid
-  cancellationReason String?
-  voidReason         String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  confirmedAt        DateTime?
-  cancelledAt        DateTime?
-  voidedAt           DateTime?
-  salesChannel       SalesChannel     @relation(fields: [salesChannelId], references: [id])
-  items              SaleTicketItem[]
+  id                      String             @id @default(uuid()) @db.Uuid
+  ticketNumber            Int                @unique @default(autoincrement())
+  salesChannelId          String             @db.Uuid
+  paymentMethod           SalePaymentMethod?
+  paymentBankId           String?            @db.Uuid
+  paymentBankNameSnapshot String?
+  status                  SaleTicketStatus   @default(DRAFT)
+  subtotal                Decimal            @default(0) @db.Decimal(10, 2)
+  discountTotal           Decimal            @default(0) @db.Decimal(10, 2)
+  commissionTotal         Decimal            @default(0) @db.Decimal(10, 2)
+  total                   Decimal            @default(0) @db.Decimal(10, 2)
+  notes                   String?
+  createdById             String?            @db.Uuid
+  confirmedById           String?            @db.Uuid
+  cancelledById           String?            @db.Uuid
+  voidedById              String?            @db.Uuid
+  cancellationReason      String?
+  voidReason              String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  confirmedAt             DateTime?
+  cancelledAt             DateTime?
+  voidedAt                DateTime?
+  salesChannel            SalesChannel       @relation(fields: [salesChannelId], references: [id])
+  paymentBank             PaymentBank?       @relation(fields: [paymentBankId], references: [id])
+  items                   SaleTicketItem[]
+  tableOrder              TableOrder?
 
   @@index([salesChannelId])
+  @@index([paymentBankId])
   @@index([status])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([confirmedAt])
+  @@index([status, confirmedAt])
+  @@index([salesChannelId, status, confirmedAt])
 }
 
 model SaleTicketItem {
@@ -273,6 +338,51 @@ model SaleTicketItem {
 
   @@index([ticketId])
   @@index([productId])
+}
+
+model RestaurantTable {
+  id          String       @id @default(uuid()) @db.Uuid
+  code        String       @unique
+  name        String?
+  area        String?
+  capacity    Int?
+  active      Boolean      @default(true)
+  createdById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdBy   User?        @relation("RestaurantTableCreatedBy", fields: [createdById], references: [id])
+  orders      TableOrder[]
+
+  @@index([active])
+  @@index([area])
+}
+
+model TableOrder {
+  id                String                     @id @default(uuid()) @db.Uuid
+  restaurantTableId String                     @db.Uuid
+  saleTicketId      String                     @unique @db.Uuid
+  status            RestaurantTableOrderStatus @default(OPEN)
+  openedById        String?                    @db.Uuid
+  cancelledById     String?                    @db.Uuid
+  closedById        String?                    @db.Uuid
+  notes             String?
+  cancelReason      String?
+  openedAt          DateTime                   @default(now())
+  cancelledAt       DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  restaurantTable   RestaurantTable            @relation(fields: [restaurantTableId], references: [id])
+  saleTicket        SaleTicket                 @relation(fields: [saleTicketId], references: [id])
+  openedBy          User?                      @relation("TableOrderOpenedBy", fields: [openedById], references: [id])
+  cancelledBy       User?                      @relation("TableOrderCancelledBy", fields: [cancelledById], references: [id])
+  closedBy          User?                      @relation("TableOrderClosedBy", fields: [closedById], references: [id])
+
+  @@index([restaurantTableId])
+  @@index([status])
+  @@index([openedById])
+  @@index([openedAt])
+  @@index([restaurantTableId, status])
 }
 
 model SystemMetadata {

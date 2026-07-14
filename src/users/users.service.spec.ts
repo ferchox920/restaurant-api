@@ -86,7 +86,9 @@ describe('UsersService', () => {
   });
 
   it('does not allow duplicate email on create', async () => {
-    prismaService.user.findUnique.mockResolvedValueOnce({ id: 'existing-user' });
+    prismaService.user.findUnique.mockResolvedValueOnce({
+      id: 'existing-user',
+    });
 
     await expect(
       service.create({
@@ -171,7 +173,9 @@ describe('UsersService', () => {
     prismaService.user.count.mockResolvedValueOnce(1);
 
     await expect(service.deactivate('admin-1')).rejects.toThrow(
-      new ConflictException('The last active ADMIN user cannot be deactivated.'),
+      new ConflictException(
+        'The last active ADMIN user cannot be deactivated.',
+      ),
     );
     expect(prismaService.user.update).not.toHaveBeenCalled();
   });

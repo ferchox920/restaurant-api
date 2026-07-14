@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import { runSerializableTransaction } from '../database/transaction';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateProductCostDto } from './dto/create-product-cost.dto';
 import { ProductCostResponseDto } from './dto/product-cost-response.dto';
 import { toProductCostResponse } from './mappers/product-cost-response.mapper';
@@ -26,64 +29,77 @@ export class ProductCostsService {
   ): Promise<ProductCostResponseDto> {
     await this.ensureProductActive(productId);
 
-    const costHistory = await this.runInTransaction(
-      async (tx: Prisma.TransactionClient) => {
-        const now = new Date();
-        const currentCost = await tx.productCostHistory.findFirst({
-          where: {
-            productId,
-            validTo: null,
-          },
-          orderBy: {
-            validFrom: 'desc',
-          },
-        });
-
-        if (currentCost) {
-          await tx.productCostHistory.update({
-            where: { id: currentCost.id },
-            data: { validTo: now },
-          });
-        }
-
-        const createdCostHistory = await tx.productCostHistory.create({
-          data: {
-            productId,
-            cost: createProductCostDto.cost,
-            validFrom: now,
-            validTo: null,
-            createdById,
-          },
-        });
-
-        await this.auditService.log(
-          {
-            userId: createdById,
-            action: AuditAction.PRODUCT_COST_CREATED,
-            entityType: AuditEntityType.PRODUCT_COST_HISTORY,
-            entityId: createdCostHistory.id,
-            beforeData: currentCost
-              ? {
-                  id: currentCost.id,
-                  productId: currentCost.productId,
-                  cost: currentCost.cost?.toString?.() ?? null,
-                  validFrom: currentCost.validFrom ?? null,
-                  validTo: currentCost.validTo ?? null,
-                  createdById: currentCost.createdById ?? null,
-                  createdAt: currentCost.createdAt ?? null,
-                }
-              : null,
-            afterData: toProductCostResponse(createdCostHistory),
-            metadata: {
+    let costHistory;
+    try {
+      costHistory = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const now = new Date();
+          const currentCost = await tx.productCostHistory.findFirst({
+            where: {
               productId,
+              validTo: null,
             },
-          },
-          tx,
-        );
+            orderBy: {
+              validFrom: 'desc',
+            },
+          });
 
-        return createdCostHistory;
-      },
-    );
+          if (currentCost) {
+            await tx.productCostHistory.update({
+              where: { id: currentCost.id },
+              data: { validTo: now },
+            });
+          }
+
+          const createdCostHistory = await tx.productCostHistory.create({
+            data: {
+              productId,
+              cost: createProductCostDto.cost,
+              validFrom: now,
+              validTo: null,
+              createdById,
+            },
+          });
+
+          await this.auditService.log(
+            {
+              userId: createdById,
+              action: AuditAction.PRODUCT_COST_CREATED,
+              entityType: AuditEntityType.PRODUCT_COST_HISTORY,
+              entityId: createdCostHistory.id,
+              beforeData: currentCost
+                ? {
+                    id: currentCost.id,
+                    productId: currentCost.productId,
+                    cost: currentCost.cost?.toString?.() ?? null,
+                    validFrom: currentCost.validFrom ?? null,
+                    validTo: currentCost.validTo ?? null,
+                    createdById: currentCost.createdById ?? null,
+                    createdAt: currentCost.createdAt ?? null,
+                  }
+                : null,
+              afterData: toProductCostResponse(createdCostHistory),
+              metadata: {
+                productId,
+              },
+            },
+            tx,
+          );
+
+          return createdCostHistory;
+        },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A current cost already exists for this product.',
+        );
+      }
+      throw error;
+    }
 
     return toProductCostResponse(costHistory);
   }
@@ -110,7 +126,10 @@ export class ProductCostsService {
     return toProductCostResponse(currentCost);
   }
 
-  async findHistory(productId: string): Promise<ProductCostResponseDto[]> {
+  async findHistory(
+    productId: string,
+    pagination: PaginationQueryDto = {},
+  ): Promise<ProductCostResponseDto[]> {
     await this.ensureProductExists(productId);
 
     const history = await this.prisma.productCostHistory.findMany({
@@ -118,6 +137,8 @@ export class ProductCostsService {
       orderBy: {
         validFrom: 'desc',
       },
+      ...(pagination.limit !== undefined ? { take: pagination.limit } : {}),
+      ...(pagination.offset !== undefined ? { skip: pagination.offset } : {}),
     });
 
     return history.map(toProductCostResponse);
@@ -163,23 +184,6 @@ export class ProductCostsService {
   private runInTransaction<T>(
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.prisma.$transaction) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    const transactionResult = this.prisma.$transaction(callback);
-
-    if (
-      !transactionResult ||
-      typeof (transactionResult as Promise<T>).then !== 'function'
-    ) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return runSerializableTransaction(this.prisma, callback);
   }
 }

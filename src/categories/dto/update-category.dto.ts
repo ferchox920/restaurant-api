@@ -8,7 +8,9 @@ export class UpdateCategoryDto {
   @IsNotEmpty()
   name?: string;
 
-  @ApiPropertyOptional({ example: 'Productos frios, calientes y embotellados.' })
+  @ApiPropertyOptional({
+    example: 'Productos frios, calientes y embotellados.',
+  })
   @IsOptional()
   @IsString()
   description?: string;

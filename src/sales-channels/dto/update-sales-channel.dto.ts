@@ -1,6 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { CommissionType } from '../sales-channel.enums';
+import { SalesChannelSubTaxInputDto } from './sales-channel-sub-tax.dto';
 
 export class UpdateSalesChannelDto {
   @ApiPropertyOptional({ example: 'Mostrador' })
@@ -36,4 +47,17 @@ export class UpdateSalesChannelDto {
   @IsNumber()
   @Min(0)
   commissionValue?: number;
+
+  @ApiPropertyOptional({
+    type: SalesChannelSubTaxInputDto,
+    isArray: true,
+    example: [{ name: 'IVA', percentage: 21 }],
+    description:
+      'Si se envia, reemplaza la lista completa de subtaxes del canal.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SalesChannelSubTaxInputDto)
+  subTaxes?: SalesChannelSubTaxInputDto[];
 }

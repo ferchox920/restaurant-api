@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
-import { InventoryReferenceType } from '../inventory/inventory.enums';
 import { SaleTicketStatus } from '../sales/sales.enums';
 import { InventoryMovementsReportQueryDto } from './dto/inventory-movements-report-query.dto';
 import { InventoryMovementsReportResponseDto } from './dto/inventory-movements-report-response.dto';
@@ -455,7 +454,7 @@ export class ReportsService {
         toInventoryMovementReportResponse({
           ...movement,
           createdBy: movement.createdById
-            ? usersById.get(movement.createdById) ?? null
+            ? (usersById.get(movement.createdById) ?? null)
             : null,
         }),
       ),
@@ -465,7 +464,10 @@ export class ReportsService {
     };
   }
 
-  private buildDateRange(from?: Date, to?: Date): Prisma.DateTimeFilter | undefined {
+  private buildDateRange(
+    from?: Date,
+    to?: Date,
+  ): Prisma.DateTimeFilter | undefined {
     if (!from && !to) {
       return undefined;
     }

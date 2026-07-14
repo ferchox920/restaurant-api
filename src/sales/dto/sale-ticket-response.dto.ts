@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SaleTicketItemResponseDto } from './sale-ticket-item-response.dto';
-import { SaleTicketStatus } from '../sales.enums';
+import { SalePaymentMethod, SaleTicketStatus } from '../sales.enums';
 
 export class SaleTicketResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -20,6 +20,32 @@ export class SaleTicketResponseDto {
 
   @ApiProperty({ enum: SaleTicketStatus, example: SaleTicketStatus.DRAFT })
   status!: string;
+
+  @ApiPropertyOptional({
+    enum: SalePaymentMethod,
+    example: SalePaymentMethod.CASH,
+    nullable: true,
+  })
+  paymentMethod!: string | null;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    example: '5b4c0bb0-5a94-4fe0-838b-6c809aaf65af',
+    nullable: true,
+  })
+  paymentBankId!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Banco Galicia',
+    nullable: true,
+  })
+  paymentBankName!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Banco Galicia',
+    nullable: true,
+  })
+  paymentBankNameSnapshot!: string | null;
 
   @ApiProperty({
     example: '11999.98',

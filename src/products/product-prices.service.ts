@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import { runSerializableTransaction } from '../database/transaction';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateProductPriceDto } from './dto/create-product-price.dto';
 import { ProductPriceResponseDto } from './dto/product-price-response.dto';
 import { toProductPriceResponse } from './mappers/product-price-response.mapper';
@@ -27,75 +30,88 @@ export class ProductPricesService {
     await this.ensureProductActive(productId);
     await this.ensureSalesChannelActive(createProductPriceDto.salesChannelId);
 
-    const priceHistory = await this.runInTransaction(
-      async (tx: Prisma.TransactionClient) => {
-        const now = new Date();
-        const currentPrice = await tx.productPriceHistory.findFirst({
-          where: {
-            productId,
-            salesChannelId: createProductPriceDto.salesChannelId,
-            validTo: null,
-          },
-          orderBy: {
-            validFrom: 'desc',
-          },
-        });
-
-        if (currentPrice) {
-          await tx.productPriceHistory.update({
-            where: { id: currentPrice.id },
-            data: { validTo: now },
-          });
-        }
-
-        const createdPriceHistory = await tx.productPriceHistory.create({
-          data: {
-            productId,
-            salesChannelId: createProductPriceDto.salesChannelId,
-            price: createProductPriceDto.price,
-            validFrom: now,
-            validTo: null,
-            createdById,
-          },
-          include: {
-            salesChannel: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        });
-
-        await this.auditService.log(
-          {
-            userId: createdById,
-            action: AuditAction.PRODUCT_PRICE_CREATED,
-            entityType: AuditEntityType.PRODUCT_PRICE_HISTORY,
-            entityId: createdPriceHistory.id,
-            beforeData: currentPrice
-              ? {
-                  id: currentPrice.id,
-                  productId: currentPrice.productId,
-                  salesChannelId: currentPrice.salesChannelId,
-                  price: currentPrice.price?.toString?.() ?? null,
-                  validFrom: currentPrice.validFrom ?? null,
-                  validTo: currentPrice.validTo ?? null,
-                  createdById: currentPrice.createdById ?? null,
-                  createdAt: currentPrice.createdAt ?? null,
-                }
-              : null,
-            afterData: toProductPriceResponse(createdPriceHistory),
-            metadata: {
+    let priceHistory;
+    try {
+      priceHistory = await this.runInTransaction(
+        async (tx: Prisma.TransactionClient) => {
+          const now = new Date();
+          const currentPrice = await tx.productPriceHistory.findFirst({
+            where: {
               productId,
               salesChannelId: createProductPriceDto.salesChannelId,
+              validTo: null,
             },
-          },
-          tx,
-        );
+            orderBy: {
+              validFrom: 'desc',
+            },
+          });
 
-        return createdPriceHistory;
-      },
-    );
+          if (currentPrice) {
+            await tx.productPriceHistory.update({
+              where: { id: currentPrice.id },
+              data: { validTo: now },
+            });
+          }
+
+          const createdPriceHistory = await tx.productPriceHistory.create({
+            data: {
+              productId,
+              salesChannelId: createProductPriceDto.salesChannelId,
+              price: createProductPriceDto.price,
+              validFrom: now,
+              validTo: null,
+              createdById,
+            },
+            include: {
+              salesChannel: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          });
+
+          await this.auditService.log(
+            {
+              userId: createdById,
+              action: AuditAction.PRODUCT_PRICE_CREATED,
+              entityType: AuditEntityType.PRODUCT_PRICE_HISTORY,
+              entityId: createdPriceHistory.id,
+              beforeData: currentPrice
+                ? {
+                    id: currentPrice.id,
+                    productId: currentPrice.productId,
+                    salesChannelId: currentPrice.salesChannelId,
+                    price: currentPrice.price?.toString?.() ?? null,
+                    validFrom: currentPrice.validFrom ?? null,
+                    validTo: currentPrice.validTo ?? null,
+                    createdById: currentPrice.createdById ?? null,
+                    createdAt: currentPrice.createdAt ?? null,
+                  }
+                : null,
+              afterData: toProductPriceResponse(createdPriceHistory),
+              metadata: {
+                productId,
+                salesChannelId: createProductPriceDto.salesChannelId,
+              },
+            },
+            tx,
+          );
+
+          return createdPriceHistory;
+        },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A current price already exists for this product and sales channel.',
+        );
+      }
+      throw error;
+    }
 
     return toProductPriceResponse(priceHistory);
   }
@@ -137,6 +153,7 @@ export class ProductPricesService {
   async findHistory(
     productId: string,
     salesChannelId?: string,
+    pagination: PaginationQueryDto = {},
   ): Promise<ProductPriceResponseDto[]> {
     await this.ensureProductExists(productId);
 
@@ -159,6 +176,8 @@ export class ProductPricesService {
       orderBy: {
         validFrom: 'desc',
       },
+      ...(pagination.limit !== undefined ? { take: pagination.limit } : {}),
+      ...(pagination.offset !== undefined ? { skip: pagination.offset } : {}),
     });
 
     return history.map(toProductPriceResponse);
@@ -245,23 +264,6 @@ export class ProductPricesService {
   private runInTransaction<T>(
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.prisma.$transaction) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    const transactionResult = this.prisma.$transaction(callback);
-
-    if (
-      !transactionResult ||
-      typeof (transactionResult as Promise<T>).then !== 'function'
-    ) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return runSerializableTransaction(this.prisma, callback);
   }
 }

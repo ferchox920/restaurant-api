@@ -1,10 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/library';
-import {
-  SalesByChannelReportResponseDto,
-} from '../dto/sales-by-channel-report-response.dto';
-import {
-  SalesByProductReportResponseDto,
-} from '../dto/sales-by-product-report-response.dto';
+import { SalesByChannelReportResponseDto } from '../dto/sales-by-channel-report-response.dto';
+import { SalesByProductReportResponseDto } from '../dto/sales-by-product-report-response.dto';
 import { SalesByUserReportResponseDto } from '../dto/sales-by-user-report-response.dto';
 import { toDecimalString, zeroDecimal } from './report-decimal.mapper';
 
@@ -29,10 +25,7 @@ export function subtractDecimals(
   return new Decimal(left).sub(new Decimal(right));
 }
 
-export function divideDecimals(
-  left: Decimal,
-  divisor: number,
-): Decimal {
+export function divideDecimals(left: Decimal, divisor: number): Decimal {
   if (divisor === 0) {
     return zeroDecimal();
   }

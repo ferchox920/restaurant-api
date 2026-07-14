@@ -7,7 +7,9 @@ import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../database/prisma.service';
+import { runSerializableTransaction } from '../database/transaction';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -69,9 +71,11 @@ export class UsersService {
     return toUserResponse(user);
   }
 
-  async findAll(): Promise<UserResponseDto[]> {
+  async findAll(query: PaginationQueryDto = {}): Promise<UserResponseDto[]> {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
+      ...(query.limit !== undefined ? { take: query.limit } : {}),
+      ...(query.offset !== undefined ? { skip: query.offset } : {}),
     });
 
     return users.map(toUserResponse);
@@ -139,7 +143,6 @@ export class UsersService {
   }
 
   async deactivate(id: string, actorUserId?: string): Promise<UserResponseDto> {
-    await this.ensureAdminDeactivationAllowed(id);
     return this.updateActiveStatus(
       id,
       false,
@@ -163,11 +166,19 @@ export class UsersService {
     actorUserId: string | undefined,
     action: AuditAction,
   ): Promise<UserResponseDto> {
-    const existingUser = await this.findUser(id);
-
     try {
       const user = await this.runInTransaction(
         async (tx: Prisma.TransactionClient) => {
+          const existingUser = await tx.user.findUnique({ where: { id } });
+
+          if (!existingUser) {
+            throw new NotFoundException(`User with id "${id}" was not found.`);
+          }
+
+          if (!active) {
+            await this.ensureAdminDeactivationAllowed(existingUser, tx);
+          }
+
           const updatedUser = await tx.user.update({
             where: { id },
             data: { active },
@@ -223,25 +234,15 @@ export class UsersService {
     }
   }
 
-  private async ensureAdminDeactivationAllowed(id: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        role: true,
-        active: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User with id "${id}" was not found.`);
-    }
-
+  private async ensureAdminDeactivationAllowed(
+    user: { role: string; active: boolean },
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
     if (user.role !== 'ADMIN' || !user.active) {
       return;
     }
 
-    const activeAdminsCount = await this.prisma.user.count({
+    const activeAdminsCount = await tx.user.count({
       where: {
         role: 'ADMIN',
         active: true,
@@ -256,7 +257,10 @@ export class UsersService {
   }
 
   private handlePrismaNotFound(error: unknown, id: string): never | void {
-    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
       throw new NotFoundException(`User with id "${id}" was not found.`);
     }
   }
@@ -264,23 +268,6 @@ export class UsersService {
   private runInTransaction<T>(
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.prisma.$transaction) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    const transactionResult = this.prisma.$transaction(callback);
-
-    if (
-      !transactionResult ||
-      typeof (transactionResult as Promise<T>).then !== 'function'
-    ) {
-      return callback(this.prisma as unknown as Prisma.TransactionClient);
-    }
-
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return runSerializableTransaction(this.prisma, callback);
   }
 }

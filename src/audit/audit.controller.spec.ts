@@ -4,15 +4,8 @@ import { ROLES_KEY } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuditController } from './audit.controller';
-import { AuditService } from './audit.service';
 
 describe('AuditController metadata', () => {
-  let controller: AuditController;
-
-  beforeEach(() => {
-    controller = new AuditController({} as AuditService);
-  });
-
   it('uses the /audit-logs route prefix', () => {
     expect(Reflect.getMetadata(PATH_METADATA, AuditController)).toBe(
       'audit-logs',

@@ -31,11 +31,7 @@ describe('InventoryController roles metadata', () => {
   });
 
   it('allows ADMIN, MANAGER and AUDITOR to read movements', () => {
-    expect(getRoles('getMovements')).toEqual([
-      'ADMIN',
-      'MANAGER',
-      'AUDITOR',
-    ]);
+    expect(getRoles('getMovements')).toEqual(['ADMIN', 'MANAGER', 'AUDITOR']);
     expect(getRoles('getProductMovements')).toEqual([
       'ADMIN',
       'MANAGER',

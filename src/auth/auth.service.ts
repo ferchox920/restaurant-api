@@ -6,7 +6,6 @@ import { UserResponseDto } from '../users/dto/user-response.dto';
 import { toUserResponse } from '../users/user-response.mapper';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
-import { AuthenticatedUser } from './types/authenticated-user.type';
 import { JwtPayload } from './types/jwt-payload.type';
 
 @Injectable()
@@ -57,6 +56,17 @@ export class AuthService {
   async getMe(userId: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        active: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!user || !user.active) {

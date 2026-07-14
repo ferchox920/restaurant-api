@@ -73,6 +73,28 @@ describe('envValidationSchema', () => {
     );
   });
 
+  it('requires a JWT secret of at least 32 characters in production', () => {
+    const { error } = envValidationSchema.validate({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      JWT_SECRET: 'short-secret',
+    });
+
+    expect(error?.message).toContain(
+      '"JWT_SECRET" length must be at least 32 characters long',
+    );
+  });
+
+  it('accepts a strong JWT secret in production', () => {
+    const { error } = envValidationSchema.validate({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-secure-production-secret-with-32-characters',
+    });
+
+    expect(error).toBeUndefined();
+  });
+
   it('rejects missing JWT_SECRET in production too', () => {
     const { error } = envValidationSchema.validate({
       ...baseEnv,

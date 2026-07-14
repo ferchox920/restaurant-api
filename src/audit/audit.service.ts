@@ -71,7 +71,9 @@ export class AuditService {
     return toAuditLogResponse(auditLog);
   }
 
-  sanitizeValue(value: unknown): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+  sanitizeValue(
+    value: unknown,
+  ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
     if (value === undefined) {
       return undefined;
     }
@@ -104,7 +106,10 @@ export class AuditService {
     if (typeof value === 'object') {
       const entries = Object.entries(value as Record<string, unknown>)
         .filter(([key]) => !this.isSensitiveField(key))
-        .map(([key, nestedValue]) => [key, this.sanitizeRecursive(nestedValue)]);
+        .map(([key, nestedValue]) => [
+          key,
+          this.sanitizeRecursive(nestedValue),
+        ]);
 
       return Object.fromEntries(entries);
     }
@@ -113,7 +118,9 @@ export class AuditService {
   }
 
   private isSensitiveField(fieldName: string): boolean {
-    const normalizedFieldName = fieldName.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const normalizedFieldName = fieldName
+      .replace(/[^a-z0-9]/gi, '')
+      .toLowerCase();
     return AUDIT_SENSITIVE_FIELD_NAMES.has(normalizedFieldName);
   }
 }

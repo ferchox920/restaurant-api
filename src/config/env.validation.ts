@@ -2,17 +2,21 @@ import Joi from 'joi';
 
 export const envValidationSchema = Joi.object({
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
+  TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(10).default(0),
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgresql', 'postgres'] })
     .required(),
-  JWT_SECRET: Joi.string().min(1).required(),
+  JWT_SECRET: Joi.string()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.string().min(32),
+      otherwise: Joi.string().min(8),
+    })
+    .required(),
   JWT_EXPIRES_IN: Joi.string().min(1).required(),
   SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').required(),
-  CORS_ENABLED: Joi.boolean()
-    .truthy('true')
-    .falsy('false')
-    .default(false),
+  CORS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   CORS_ORIGIN: Joi.string()
     .pattern(/^(\*|[^,\s]+(\s*,\s*[^,\s]+)*)?$/)
     .allow('')

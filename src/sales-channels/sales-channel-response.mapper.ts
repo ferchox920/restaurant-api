@@ -7,9 +7,20 @@ export type SalesChannelRecord = {
   code: string;
   description: string | null;
   commissionType: CommissionType;
-  commissionValue: {
-    toString(): string;
-  } | number;
+  commissionValue:
+    | {
+        toString(): string;
+      }
+    | number;
+  subTaxes?: Array<{
+    id: string;
+    name: string;
+    percentage:
+      | {
+          toString(): string;
+        }
+      | number;
+  }>;
   active: boolean;
   createdById: string | null;
   createdAt: Date;
@@ -26,6 +37,12 @@ export function toSalesChannelResponse(
     description: salesChannel.description,
     commissionType: salesChannel.commissionType,
     commissionValue: Number(salesChannel.commissionValue),
+    subTaxes:
+      salesChannel.subTaxes?.map((subTax) => ({
+        id: subTax.id,
+        name: subTax.name,
+        percentage: Number(subTax.percentage),
+      })) ?? [],
     active: salesChannel.active,
     createdById: salesChannel.createdById,
     createdAt: salesChannel.createdAt,

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -25,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ActivePaginationQueryDto } from '../common/dto/active-pagination-query.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -45,8 +45,7 @@ export class CategoriesController {
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({
     summary: 'Crear categoria',
-    description:
-      'Requiere JWT. Solo ADMIN y MANAGER pueden crear categorias.',
+    description: 'Requiere JWT. Solo ADMIN y MANAGER pueden crear categorias.',
   })
   @ApiCreatedResponse({
     description: 'Categoria creada correctamente.',
@@ -62,7 +61,8 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos de escritura sobre categorias.',
+    description:
+      'El usuario autenticado no tiene permisos de escritura sobre categorias.',
   })
   create(
     @Body() createCategoryDto: CreateCategoryDto,
@@ -97,12 +97,13 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar categorias.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar categorias.',
   })
   findAll(
-    @Query('active') active?: string,
+    @Query() query: ActivePaginationQueryDto,
   ): Promise<CategoryResponseDto[]> {
-    return this.categoriesService.findAll(this.parseActiveFilter(active));
+    return this.categoriesService.findAll(query.active, query);
   }
 
   @Get(':id')
@@ -126,7 +127,8 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar categorias.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar categorias.',
   })
   findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -158,7 +160,8 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos de escritura sobre categorias.',
+    description:
+      'El usuario autenticado no tiene permisos de escritura sobre categorias.',
   })
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -189,7 +192,8 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos de escritura sobre categorias.',
+    description:
+      'El usuario autenticado no tiene permisos de escritura sobre categorias.',
   })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -219,30 +223,13 @@ export class CategoriesController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos de escritura sobre categorias.',
+    description:
+      'El usuario autenticado no tiene permisos de escritura sobre categorias.',
   })
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryResponseDto> {
     return this.categoriesService.reactivate(id, user.id);
-  }
-
-  private parseActiveFilter(active?: string): boolean | undefined {
-    if (active === undefined) {
-      return undefined;
-    }
-
-    if (active === 'true') {
-      return true;
-    }
-
-    if (active === 'false') {
-      return false;
-    }
-
-    throw new BadRequestException(
-      'Query parameter "active" must be either "true" or "false".',
-    );
   }
 }

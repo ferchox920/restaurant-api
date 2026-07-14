@@ -85,9 +85,12 @@ export class SalesController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar tickets.',
   })
-  findAll(@Query() query: SaleTicketQueryDto): Promise<SaleTicketResponseDto[]> {
+  findAll(
+    @Query() query: SaleTicketQueryDto,
+  ): Promise<SaleTicketResponseDto[]> {
     return this.salesService.findAll(query);
   }
 
@@ -107,7 +110,8 @@ export class SalesController {
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar tickets.',
   })
   findOne(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -133,7 +137,8 @@ export class SalesController {
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para editar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para editar tickets.',
   })
   update(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -156,14 +161,16 @@ export class SalesController {
   })
   @ApiBadRequestResponse({ description: 'Payload invalido.' })
   @ApiNotFoundResponse({
-    description: 'Ticket, producto, costo vigente o precio vigente no encontrado.',
+    description:
+      'Ticket, producto, costo vigente o precio vigente no encontrado.',
   })
   @ApiConflictResponse({
     description: 'El ticket no esta en DRAFT o el producto esta inactivo.',
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para editar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para editar tickets.',
   })
   addItem(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -191,7 +198,8 @@ export class SalesController {
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para editar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para editar tickets.',
   })
   updateItem(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -222,7 +230,8 @@ export class SalesController {
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para editar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para editar tickets.',
   })
   removeItem(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -243,14 +252,17 @@ export class SalesController {
     description: 'Ticket cancelado correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o ticketId no valido.',
+  })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description: 'El ticket ya no esta en DRAFT y no puede cancelarse.',
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para cancelar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para cancelar tickets.',
   })
   cancel(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -271,7 +283,9 @@ export class SalesController {
     description: 'Ticket confirmado correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o ticketId no valido.',
+  })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description:
@@ -279,7 +293,8 @@ export class SalesController {
   })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para confirmar tickets.',
+    description:
+      'El usuario autenticado no tiene permisos para confirmar tickets.',
   })
   confirm(
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
@@ -300,7 +315,9 @@ export class SalesController {
     description: 'Venta anulada correctamente.',
     type: SaleTicketResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Payload invalido o ticketId no valido.' })
+  @ApiBadRequestResponse({
+    description: 'Payload invalido o ticketId no valido.',
+  })
   @ApiNotFoundResponse({ description: 'Ticket no encontrado.' })
   @ApiConflictResponse({
     description: 'El ticket no esta en CONFIRMED y no puede anularse.',

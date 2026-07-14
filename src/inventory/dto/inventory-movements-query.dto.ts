@@ -1,12 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { IsNotBefore } from '../../common/validation/is-not-before.decorator';
 import {
   InventoryMovementType,
   type InventoryMovementType as InventoryMovementTypeValue,
 } from '../inventory.enums';
 
-export class InventoryMovementsQueryDto {
+export class InventoryMovementsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     format: 'uuid',
     description: 'Filtra por producto.',
@@ -39,5 +41,6 @@ export class InventoryMovementsQueryDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @IsNotBefore('from')
   to?: Date;
 }

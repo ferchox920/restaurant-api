@@ -76,10 +76,13 @@ export class ProductsService {
     active?: boolean;
     categoryId?: string;
     search?: string;
+    limit?: number;
+    offset?: number;
   }): Promise<ProductResponseDto[]> {
     const products = await this.prisma.product.findMany({
       where: {
-        active: typeof filters?.active === 'boolean' ? filters.active : undefined,
+        active:
+          typeof filters?.active === 'boolean' ? filters.active : undefined,
         categoryId: filters?.categoryId,
         OR: filters?.search
           ? [
@@ -99,6 +102,8 @@ export class ProductsService {
           : undefined,
       },
       orderBy: { name: 'asc' },
+      ...(filters?.limit !== undefined ? { take: filters.limit } : {}),
+      ...(filters?.offset !== undefined ? { skip: filters.offset } : {}),
     });
 
     return products.map(toProductResponse);
@@ -313,7 +318,10 @@ export class ProductsService {
   }
 
   private handlePrismaNotFound(error: unknown, id: string): never | void {
-    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
       throw new NotFoundException(`Product with id "${id}" was not found.`);
     }
   }
@@ -334,10 +342,6 @@ export class ProductsService {
       return callback(this.prisma as unknown as Prisma.TransactionClient);
     }
 
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return transactionResult;
   }
 }

@@ -45,7 +45,8 @@ export class ReportsController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar reportes.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar reportes.',
   })
   getStockReport(
     @Query() query: StockReportQueryDto,
@@ -68,7 +69,8 @@ export class ReportsController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar reportes.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar reportes.',
   })
   getSalesByChannelReport(
     @Query() query: SalesByChannelQueryDto,
@@ -91,7 +93,8 @@ export class ReportsController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar reportes.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar reportes.',
   })
   getSalesByProductReport(
     @Query() query: SalesByProductQueryDto,
@@ -114,7 +117,8 @@ export class ReportsController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar reportes.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar reportes.',
   })
   getSalesByUserReport(
     @Query() query: SalesByUserQueryDto,
@@ -136,7 +140,8 @@ export class ReportsController {
   @ApiBadRequestResponse({ description: 'Filtros de consulta invalidos.' })
   @ApiUnauthorizedResponse({ description: 'Token ausente o invalido.' })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar reportes.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar reportes.',
   })
   getInventoryMovementsReport(
     @Query() query: InventoryMovementsReportQueryDto,

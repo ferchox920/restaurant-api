@@ -7,6 +7,7 @@ import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import { runSerializableTransaction } from '../database/transaction';
 import { InventoryService } from '../inventory/inventory.service';
 import { StockManagementType } from '../products/product.enums';
 import { AddSaleTicketItemDto } from './dto/add-sale-ticket-item.dto';
@@ -19,12 +20,17 @@ import { UpdateSaleTicketItemDto } from './dto/update-sale-ticket-item.dto';
 import { UpdateSaleTicketDto } from './dto/update-sale-ticket.dto';
 import { VoidSaleTicketDto } from './dto/void-sale-ticket.dto';
 import { toSaleTicketResponse } from './mappers/sale-ticket-response.mapper';
-import { SaleTicketStatus } from './sales.enums';
+import { SalePaymentMethod, SaleTicketStatus } from './sales.enums';
 
 type SalesTransactionClient = Prisma.TransactionClient;
 
 const saleTicketInclude = {
   salesChannel: {
+    select: {
+      name: true,
+    },
+  },
+  paymentBank: {
     select: {
       name: true,
     },
@@ -58,41 +64,59 @@ export class SalesService {
     dto: CreateSaleTicketDto,
     createdById: string,
   ): Promise<SaleTicketResponseDto> {
-    await this.ensureSalesChannelActive(dto.salesChannelId);
-
     const ticket = await this.runInTransaction(
-      async (tx: SalesTransactionClient) => {
-        const createdTicket = await tx.saleTicket.create({
-          data: {
-            salesChannelId: dto.salesChannelId,
-            notes: dto.notes,
-            createdById,
-            status: SaleTicketStatus.DRAFT,
-            subtotal: new Decimal(0),
-            discountTotal: new Decimal(0),
-            commissionTotal: new Decimal(0),
-            total: new Decimal(0),
-          },
-          include: saleTicketInclude,
-        });
-
-        await this.auditService.log(
-          {
-            userId: createdById,
-            action: AuditAction.SALE_TICKET_CREATED,
-            entityType: AuditEntityType.SALE_TICKET,
-            entityId: createdTicket.id,
-            beforeData: null,
-            afterData: this.serializeSaleTicket(createdTicket),
-          },
-          tx,
-        );
-
-        return createdTicket;
-      },
+      async (tx: SalesTransactionClient) =>
+        this.createDraftInTransaction(dto, createdById, tx),
     );
 
     return toSaleTicketResponse(ticket);
+  }
+
+  async createDraftInTransaction(
+    dto: CreateSaleTicketDto,
+    createdById: string,
+    tx: SalesTransactionClient,
+  ) {
+    await this.ensureSalesChannelActive(dto.salesChannelId, tx);
+
+    const paymentSelection = await this.resolvePaymentSelection(
+      {
+        paymentMethod: dto.paymentMethod,
+        paymentBankId: dto.paymentBankId,
+      },
+      tx,
+    );
+
+    const createdTicket = await tx.saleTicket.create({
+      data: {
+        salesChannelId: dto.salesChannelId,
+        notes: dto.notes,
+        paymentMethod: paymentSelection.paymentMethod,
+        paymentBankId: paymentSelection.paymentBankId,
+        paymentBankNameSnapshot: paymentSelection.paymentBankNameSnapshot,
+        createdById,
+        status: SaleTicketStatus.DRAFT,
+        subtotal: new Decimal(0),
+        discountTotal: new Decimal(0),
+        commissionTotal: new Decimal(0),
+        total: new Decimal(0),
+      },
+      include: saleTicketInclude,
+    });
+
+    await this.auditService.log(
+      {
+        userId: createdById,
+        action: AuditAction.SALE_TICKET_CREATED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: createdTicket.id,
+        beforeData: null,
+        afterData: this.serializeSaleTicket(createdTicket),
+      },
+      tx,
+    );
+
+    return createdTicket;
   }
 
   async findAll(query: SaleTicketQueryDto): Promise<SaleTicketResponseDto[]> {
@@ -131,6 +155,8 @@ export class SalesService {
       orderBy: {
         createdAt: 'desc',
       },
+      ...(query.limit !== undefined ? { take: query.limit } : {}),
+      ...(query.offset !== undefined ? { skip: query.offset } : {}),
     });
 
     return tickets.map(toSaleTicketResponse);
@@ -155,10 +181,31 @@ export class SalesService {
           'Only sale tickets in DRAFT status can be modified in Sprint 6.',
         );
 
+        const shouldUpdatePayment =
+          dto.paymentMethod !== undefined || dto.paymentBankId !== undefined;
+        const paymentSelection = shouldUpdatePayment
+          ? await this.resolvePaymentSelection(
+              {
+                paymentMethod: dto.paymentMethod,
+                paymentBankId: dto.paymentBankId,
+              },
+              tx,
+            )
+          : null;
+
         const updatedTicket = await tx.saleTicket.update({
           where: { id: ticketId },
           data: {
             notes: dto.notes,
+            paymentMethod: shouldUpdatePayment
+              ? (paymentSelection?.paymentMethod ?? null)
+              : undefined,
+            paymentBankId: shouldUpdatePayment
+              ? (paymentSelection?.paymentBankId ?? null)
+              : undefined,
+            paymentBankNameSnapshot: shouldUpdatePayment
+              ? (paymentSelection?.paymentBankNameSnapshot ?? null)
+              : undefined,
           },
           include: saleTicketInclude,
         });
@@ -207,7 +254,9 @@ export class SalesService {
         });
 
         let itemId: string;
-        let beforeItem: ReturnType<SalesService['serializeSaleTicketItem']> | null;
+        let beforeItem: ReturnType<
+          SalesService['serializeSaleTicketItem']
+        > | null;
         let afterItem: ReturnType<SalesService['serializeSaleTicketItem']>;
 
         if (existingItem) {
@@ -423,122 +472,151 @@ export class SalesService {
     cancelledById: string,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
-      async (tx: SalesTransactionClient) => {
-        const existingTicket = await this.getTicketOrThrow(ticketId, tx);
-        this.ensureTicketStatus(
-          existingTicket.status,
-          SaleTicketStatus.DRAFT,
-          'Only sale tickets in DRAFT status can be modified in Sprint 6.',
-        );
-
-        const updatedTicket = await tx.saleTicket.update({
-          where: { id: ticketId },
-          data: {
-            status: SaleTicketStatus.CANCELLED,
-            cancelledById,
-            cancellationReason: dto.reason,
-            cancelledAt: new Date(),
-          },
-          include: saleTicketInclude,
-        });
-
-        await this.auditService.log(
-          {
-            userId: cancelledById,
-            action: AuditAction.SALE_TICKET_CANCELLED,
-            entityType: AuditEntityType.SALE_TICKET,
-            entityId: updatedTicket.id,
-            beforeData: this.serializeSaleTicket(existingTicket),
-            afterData: this.serializeSaleTicket(updatedTicket),
-          },
-          tx,
-        );
-
-        return updatedTicket;
-      },
+      async (tx: SalesTransactionClient) =>
+        this.cancelDraftInTransaction(ticketId, dto, cancelledById, tx),
     );
 
     return toSaleTicketResponse(ticket);
   }
 
+  async cancelDraftInTransaction(
+    ticketId: string,
+    dto: CancelSaleTicketDto,
+    cancelledById: string,
+    tx: SalesTransactionClient,
+  ) {
+    const existingTicket = await this.getTicketOrThrow(ticketId, tx);
+    this.ensureTicketStatus(
+      existingTicket.status,
+      SaleTicketStatus.DRAFT,
+      'Only sale tickets in DRAFT status can be modified in Sprint 6.',
+    );
+
+    const updatedTicket = await tx.saleTicket.update({
+      where: { id: ticketId },
+      data: {
+        status: SaleTicketStatus.CANCELLED,
+        cancelledById,
+        cancellationReason: dto.reason,
+        cancelledAt: new Date(),
+      },
+      include: saleTicketInclude,
+    });
+
+    await this.auditService.log(
+      {
+        userId: cancelledById,
+        action: AuditAction.SALE_TICKET_CANCELLED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: updatedTicket.id,
+        beforeData: this.serializeSaleTicket(existingTicket),
+        afterData: this.serializeSaleTicket(updatedTicket),
+      },
+      tx,
+    );
+
+    return updatedTicket;
+  }
+
   async confirm(
     ticketId: string,
-    _dto: ConfirmSaleTicketDto,
+    dto: ConfirmSaleTicketDto,
     confirmedById: string,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
-      async (tx: SalesTransactionClient) => {
-        const saleTicket = await this.getTicketOrThrow(ticketId, tx);
-        this.ensureTicketStatus(
-          saleTicket.status,
-          SaleTicketStatus.DRAFT,
-          'Only sale tickets in DRAFT status can be confirmed in Sprint 7.',
-        );
-
-        if (saleTicket.items.length === 0) {
-          throw new ConflictException(
-            'A DRAFT sale ticket must contain at least one item before confirmation.',
-          );
-        }
-
-        await this.ensureSalesChannelActive(saleTicket.salesChannelId, tx);
-        this.ensureItemsCanBeConfirmed(saleTicket.items);
-        this.ensureNoRecipeBasedItems(saleTicket.items);
-        const inventoryItems = this.groupInventoryItems(saleTicket.items);
-
-        const inventoryMovements = [];
-
-        for (const item of inventoryItems) {
-          const movement = await this.inventoryService.applySaleOut(
-            {
-              productId: item.productId,
-              quantity: item.quantity,
-              reason: `Sale ticket ${ticketId} confirmation.`,
-              referenceId: ticketId,
-              createdById: confirmedById,
-            },
-            tx,
-          );
-
-          inventoryMovements.push(movement);
-        }
-
-        await tx.saleTicket.update({
-          where: { id: ticketId },
-          data: {
-            status: SaleTicketStatus.CONFIRMED,
-            confirmedById,
-            confirmedAt: new Date(),
-          },
-        });
-
-        const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
-
-        await this.auditService.log(
-          {
-            userId: confirmedById,
-            action: AuditAction.SALE_TICKET_CONFIRMED,
-            entityType: AuditEntityType.SALE_TICKET,
-            entityId: updatedTicket.id,
-            beforeData: this.serializeSaleTicket(saleTicket),
-            afterData: this.serializeSaleTicket(updatedTicket),
-            metadata: {
-              inventoryMovements: inventoryMovements.map((movement) => ({
-                id: movement.id,
-                productId: movement.productId,
-                quantity: movement.quantity.toString(),
-                movementType: movement.movementType,
-              })),
-            },
-          },
-          tx,
-        );
-
-        return updatedTicket;
-      },
+      async (tx: SalesTransactionClient) =>
+        this.confirmDraftInTransaction(ticketId, dto, confirmedById, tx),
     );
 
     return toSaleTicketResponse(ticket);
+  }
+
+  async confirmDraftInTransaction(
+    ticketId: string,
+    dto: ConfirmSaleTicketDto,
+    confirmedById: string,
+    tx: SalesTransactionClient,
+  ) {
+    const saleTicket = await this.getTicketOrThrow(ticketId, tx);
+    this.ensureTicketStatus(
+      saleTicket.status,
+      SaleTicketStatus.DRAFT,
+      'Only sale tickets in DRAFT status can be confirmed in Sprint 7.',
+    );
+
+    if (saleTicket.items.length === 0) {
+      throw new ConflictException(
+        'A DRAFT sale ticket must contain at least one item before confirmation.',
+      );
+    }
+
+    await this.ensureSalesChannelActive(saleTicket.salesChannelId, tx);
+    const paymentSelection = await this.resolvePaymentSelection(
+      {
+        paymentMethod:
+          dto.paymentMethod ?? saleTicket.paymentMethod ?? undefined,
+        paymentBankId:
+          dto.paymentBankId ?? saleTicket.paymentBankId ?? undefined,
+      },
+      tx,
+      true,
+    );
+    this.ensureItemsCanBeConfirmed(saleTicket.items);
+    this.ensureNoRecipeBasedItems(saleTicket.items);
+    const inventoryItems = this.groupInventoryItems(saleTicket.items);
+
+    const inventoryMovements = [];
+
+    for (const item of inventoryItems) {
+      const movement = await this.inventoryService.applySaleOut(
+        {
+          productId: item.productId,
+          quantity: item.quantity,
+          reason: `Sale ticket ${ticketId} confirmation.`,
+          referenceId: ticketId,
+          createdById: confirmedById,
+        },
+        tx,
+      );
+
+      inventoryMovements.push(movement);
+    }
+
+    await tx.saleTicket.update({
+      where: { id: ticketId },
+      data: {
+        status: SaleTicketStatus.CONFIRMED,
+        confirmedById,
+        confirmedAt: new Date(),
+        paymentMethod: paymentSelection.paymentMethod,
+        paymentBankId: paymentSelection.paymentBankId,
+        paymentBankNameSnapshot: paymentSelection.paymentBankNameSnapshot,
+      },
+    });
+
+    const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+    await this.auditService.log(
+      {
+        userId: confirmedById,
+        action: AuditAction.SALE_TICKET_CONFIRMED,
+        entityType: AuditEntityType.SALE_TICKET,
+        entityId: updatedTicket.id,
+        beforeData: this.serializeSaleTicket(saleTicket),
+        afterData: this.serializeSaleTicket(updatedTicket),
+        metadata: {
+          inventoryMovements: inventoryMovements.map((movement) => ({
+            id: movement.id,
+            productId: movement.productId,
+            quantity: movement.quantity.toString(),
+            movementType: movement.movementType,
+          })),
+        },
+      },
+      tx,
+    );
+
+    return updatedTicket;
   }
 
   async void(
@@ -710,6 +788,38 @@ export class SalesService {
     }
   }
 
+  private async ensurePaymentBankActive(
+    paymentBankId: string,
+    tx?: SalesTransactionClient,
+  ): Promise<{ id: string; name: string }> {
+    const prisma = tx ?? this.prisma;
+    const paymentBank = await prisma.paymentBank.findUnique({
+      where: { id: paymentBankId },
+      select: {
+        id: true,
+        name: true,
+        active: true,
+      },
+    });
+
+    if (!paymentBank) {
+      throw new NotFoundException(
+        `Payment bank with id "${paymentBankId}" was not found.`,
+      );
+    }
+
+    if (!paymentBank.active) {
+      throw new ConflictException(
+        'The provided payment bank is inactive and cannot receive transfer payments.',
+      );
+    }
+
+    return {
+      id: paymentBank.id,
+      name: paymentBank.name,
+    };
+  }
+
   private async findProductForSale(
     tx: SalesTransactionClient,
     productId: string,
@@ -747,10 +857,7 @@ export class SalesService {
     return product;
   }
 
-  private async findCurrentCost(
-    tx: SalesTransactionClient,
-    productId: string,
-  ) {
+  private async findCurrentCost(tx: SalesTransactionClient, productId: string) {
     const currentCost = await tx.productCostHistory.findFirst({
       where: {
         productId,
@@ -827,6 +934,70 @@ export class SalesService {
     }
   }
 
+  private async resolvePaymentSelection(
+    input: {
+      paymentMethod?: SalePaymentMethod;
+      paymentBankId?: string;
+    },
+    tx?: SalesTransactionClient,
+    requireMethod = false,
+  ): Promise<{
+    paymentMethod: SalePaymentMethod | null;
+    paymentBankId: string | null;
+    paymentBankNameSnapshot: string | null;
+  }> {
+    if (!input.paymentMethod) {
+      if (input.paymentBankId) {
+        throw new ConflictException(
+          'paymentBankId can only be provided when paymentMethod is TRANSFER.',
+        );
+      }
+
+      if (requireMethod) {
+        throw new ConflictException(
+          'A sale ticket must define a paymentMethod before confirmation.',
+        );
+      }
+
+      return {
+        paymentMethod: null,
+        paymentBankId: null,
+        paymentBankNameSnapshot: null,
+      };
+    }
+
+    if (input.paymentMethod === SalePaymentMethod.CASH) {
+      if (input.paymentBankId) {
+        throw new ConflictException(
+          'CASH payments cannot include a paymentBankId.',
+        );
+      }
+
+      return {
+        paymentMethod: SalePaymentMethod.CASH,
+        paymentBankId: null,
+        paymentBankNameSnapshot: null,
+      };
+    }
+
+    if (!input.paymentBankId) {
+      throw new ConflictException(
+        'TRANSFER payments require a valid paymentBankId.',
+      );
+    }
+
+    const paymentBank = await this.ensurePaymentBankActive(
+      input.paymentBankId,
+      tx,
+    );
+
+    return {
+      paymentMethod: SalePaymentMethod.TRANSFER,
+      paymentBankId: paymentBank.id,
+      paymentBankNameSnapshot: paymentBank.name,
+    };
+  }
+
   private ensureNoRecipeBasedItems(
     items: Array<{
       product: {
@@ -855,7 +1026,9 @@ export class SalesService {
       };
     }>,
   ): void {
-    const hasInactiveProduct = items.some((item) => item.product.active === false);
+    const hasInactiveProduct = items.some(
+      (item) => item.product.active === false,
+    );
 
     if (hasInactiveProduct) {
       throw new ConflictException(
@@ -876,7 +1049,10 @@ export class SalesService {
     const grouped = new Map<string, Decimal>();
 
     for (const item of items) {
-      if (item.product.stockManagementType !== StockManagementType.FINISHED_PRODUCT) {
+      if (
+        item.product.stockManagementType !==
+        StockManagementType.FINISHED_PRODUCT
+      ) {
         continue;
       }
 
@@ -930,6 +1106,9 @@ export class SalesService {
       ticketNumber: ticket.ticketNumber ?? null,
       salesChannelId: ticket.salesChannelId ?? null,
       status: ticket.status ?? null,
+      paymentMethod: ticket.paymentMethod ?? null,
+      paymentBankId: ticket.paymentBankId ?? null,
+      paymentBankNameSnapshot: ticket.paymentBankNameSnapshot ?? null,
       subtotal:
         ticket.subtotal instanceof Decimal ? ticket.subtotal.toString() : null,
       discountTotal:
@@ -959,23 +1138,6 @@ export class SalesService {
   private runInTransaction<T>(
     callback: (tx: SalesTransactionClient) => Promise<T>,
   ): Promise<T> {
-    if (!this.prisma.$transaction) {
-      return callback(this.prisma as unknown as SalesTransactionClient);
-    }
-
-    const transactionResult = this.prisma.$transaction(callback);
-
-    if (
-      !transactionResult ||
-      typeof (transactionResult as Promise<T>).then !== 'function'
-    ) {
-      return callback(this.prisma as unknown as SalesTransactionClient);
-    }
-
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as SalesTransactionClient)
-          : result,
-      );
+    return runSerializableTransaction(this.prisma, callback);
   }
 }

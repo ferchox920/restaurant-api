@@ -6,6 +6,7 @@ import { ConfirmSaleTicketDto } from './confirm-sale-ticket.dto';
 import { CreateSaleTicketDto } from './create-sale-ticket.dto';
 import { SaleTicketQueryDto } from './sale-ticket-query.dto';
 import { UpdateSaleTicketItemDto } from './update-sale-ticket-item.dto';
+import { UpdateSaleTicketDto } from './update-sale-ticket.dto';
 import { VoidSaleTicketDto } from './void-sale-ticket.dto';
 
 describe('Sprint 6 sale ticket DTOs', () => {
@@ -13,6 +14,7 @@ describe('Sprint 6 sale ticket DTOs', () => {
     const dto = plainToInstance(CreateSaleTicketDto, {
       salesChannelId: '0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4',
       notes: 'Mesa 4',
+      paymentMethod: 'CASH',
     });
 
     const errors = validateSync(dto);
@@ -78,6 +80,28 @@ describe('Sprint 6 sale ticket DTOs', () => {
     const errors = validateSync(dto);
 
     expect(errors).toHaveLength(0);
+  });
+
+  it('accepts confirm payload with transfer payment method and bank', () => {
+    const dto = plainToInstance(ConfirmSaleTicketDto, {
+      paymentMethod: 'TRANSFER',
+      paymentBankId: '0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4',
+    });
+
+    const errors = validateSync(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects update payload with invalid paymentBankId', () => {
+    const dto = plainToInstance(UpdateSaleTicketDto, {
+      paymentMethod: 'TRANSFER',
+      paymentBankId: 'invalid',
+    });
+
+    const errors = validateSync(dto);
+
+    expect(errors[0]?.constraints?.isUuid).toBeDefined();
   });
 
   it('accepts void payload with valid reason', () => {

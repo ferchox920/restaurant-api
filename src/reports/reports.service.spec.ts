@@ -1,6 +1,5 @@
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
-import { InventoryReferenceType, InventoryMovementType } from '../inventory/inventory.enums';
 import { StockManagementType } from '../products/product.enums';
 import { ReportsService } from './reports.service';
 
@@ -162,7 +161,9 @@ describe('ReportsService', () => {
     ]);
 
     const lowStock = await service.getStockReport({ stockStatus: 'LOW_STOCK' });
-    const available = await service.getStockReport({ stockStatus: 'AVAILABLE' });
+    const available = await service.getStockReport({
+      stockStatus: 'AVAILABLE',
+    });
 
     expect(lowStock).toHaveLength(1);
     expect(lowStock[0]?.productId).toBe('product-2');

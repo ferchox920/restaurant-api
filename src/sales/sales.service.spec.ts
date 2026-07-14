@@ -8,6 +8,9 @@ import { StockManagementType } from '../products/product.enums';
 import { SalesService } from './sales.service';
 
 type TxMock = {
+  paymentBank: {
+    findUnique: jest.Mock;
+  };
   salesChannel: {
     findUnique: jest.Mock;
   };
@@ -53,6 +56,9 @@ describe('SalesService', () => {
   };
   let prismaService: {
     $transaction: jest.Mock;
+    paymentBank: {
+      findUnique: jest.Mock;
+    };
     salesChannel: {
       findUnique: jest.Mock;
     };
@@ -76,6 +82,9 @@ describe('SalesService', () => {
   beforeEach(() => {
     prismaService = {
       $transaction: jest.fn(),
+      paymentBank: {
+        findUnique: jest.fn(),
+      },
       salesChannel: {
         findUnique: jest.fn(),
       },
@@ -131,6 +140,9 @@ describe('SalesService', () => {
       ticketNumber: 1001,
       salesChannelId: 'channel-1',
       status: 'DRAFT',
+      paymentMethod: 'CASH',
+      paymentBankId: null,
+      paymentBankNameSnapshot: null,
       subtotal: new Decimal('0'),
       discountTotal: new Decimal('0'),
       commissionTotal: new Decimal('0'),
@@ -148,6 +160,7 @@ describe('SalesService', () => {
       cancelledAt: null,
       voidedAt: null,
       salesChannel: { name: 'Salon', active: true },
+      paymentBank: null,
       items: itemOverrides,
       ...overrides,
     };
@@ -179,6 +192,9 @@ describe('SalesService', () => {
 
   function makeDraftTx(overrides: Partial<TxMock> = {}): TxMock {
     return {
+      paymentBank: {
+        findUnique: jest.fn(),
+      },
       salesChannel: {
         findUnique: jest.fn(),
       },
@@ -241,6 +257,9 @@ describe('SalesService', () => {
       data: {
         salesChannelId: 'channel-1',
         notes: 'Mesa 4',
+        paymentMethod: null,
+        paymentBankId: null,
+        paymentBankNameSnapshot: null,
         createdById: 'cashier-1',
         status: 'DRAFT',
         subtotal: expect.any(Decimal),
@@ -363,9 +382,13 @@ describe('SalesService', () => {
       }),
     );
 
-    const result = await service.update('ticket-1', {
-      notes: 'Cliente pide sin cebolla',
-    }, 'manager-1');
+    const result = await service.update(
+      'ticket-1',
+      {
+        notes: 'Cliente pide sin cebolla',
+      },
+      'manager-1',
+    );
 
     expect(result.notes).toBe('Cliente pide sin cebolla');
     expect(auditService.log).toHaveBeenCalledWith(
@@ -473,7 +496,11 @@ describe('SalesService', () => {
       }),
     );
 
-    await service.cancel('ticket-1', { reason: 'Cliente desistio' }, 'cashier-1');
+    await service.cancel(
+      'ticket-1',
+      { reason: 'Cliente desistio' },
+      'cashier-1',
+    );
 
     expect(inventoryService.applySaleOut).not.toHaveBeenCalled();
     expect(inventoryService.applyVoidReversal).not.toHaveBeenCalled();
@@ -550,6 +577,74 @@ describe('SalesService', () => {
     );
   });
 
+  it('stores transfer payment data during confirmation', async () => {
+    const tx = makeDraftTx({
+      paymentBank: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'bank-1',
+          name: 'Banco Galicia',
+          active: true,
+        }),
+      },
+      salesChannel: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'channel-1',
+          active: true,
+        }),
+      },
+      saleTicket: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(
+            makeTicketRecord(
+              {
+                paymentMethod: null,
+                paymentBankId: null,
+                paymentBankNameSnapshot: null,
+              },
+              [makeSaleItem()],
+            ),
+          )
+          .mockResolvedValueOnce(
+            makeTicketRecord(
+              {
+                status: 'CONFIRMED',
+                paymentMethod: 'TRANSFER',
+                paymentBankId: 'bank-1',
+                paymentBankNameSnapshot: 'Banco Galicia',
+                paymentBank: { name: 'Banco Galicia' },
+                confirmedById: 'cashier-1',
+                confirmedAt: new Date('2026-06-09T03:06:00.000Z'),
+              },
+              [makeSaleItem()],
+            ),
+          ),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    const result = await service.confirm(
+      'ticket-1',
+      { paymentMethod: 'TRANSFER', paymentBankId: 'bank-1' },
+      'cashier-1',
+    );
+
+    expect(tx.saleTicket.update).toHaveBeenCalledWith({
+      where: { id: 'ticket-1' },
+      data: expect.objectContaining({
+        paymentMethod: 'TRANSFER',
+        paymentBankId: 'bank-1',
+        paymentBankNameSnapshot: 'Banco Galicia',
+      }),
+    });
+    expect(result.paymentMethod).toBe('TRANSFER');
+    expect(result.paymentBankName).toBe('Banco Galicia');
+  });
+
   it('rejects confirmation when a draft ticket has no items', async () => {
     const tx = makeDraftTx({
       saleTicket: {
@@ -569,6 +664,39 @@ describe('SalesService', () => {
     expect(auditService.log).not.toHaveBeenCalled();
   });
 
+  it('rejects confirmation when final payment method is missing', async () => {
+    const tx = makeDraftTx({
+      salesChannel: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'channel-1',
+          active: true,
+        }),
+      },
+      saleTicket: {
+        findUnique: jest.fn().mockResolvedValueOnce(
+          makeTicketRecord(
+            {
+              paymentMethod: null,
+              paymentBankId: null,
+              paymentBankNameSnapshot: null,
+            },
+            [makeSaleItem()],
+          ),
+        ),
+        update: jest.fn(),
+      },
+    });
+
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    await expect(service.confirm('ticket-1', {}, 'cashier-1')).rejects.toThrow(
+      ConflictException,
+    );
+    expect(inventoryService.applySaleOut).not.toHaveBeenCalled();
+  });
+
   it('rejects confirmation for nonexistent tickets', async () => {
     const tx = makeDraftTx({
       saleTicket: {
@@ -581,9 +709,9 @@ describe('SalesService', () => {
       callback(tx),
     );
 
-    await expect(service.confirm('missing-ticket', {}, 'cashier-1')).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      service.confirm('missing-ticket', {}, 'cashier-1'),
+    ).rejects.toThrow(NotFoundException);
     expect(inventoryService.applySaleOut).not.toHaveBeenCalled();
   });
 
@@ -594,7 +722,9 @@ describe('SalesService', () => {
         saleTicket: {
           findUnique: jest
             .fn()
-            .mockResolvedValueOnce(makeTicketRecord({ status }, [makeSaleItem()])),
+            .mockResolvedValueOnce(
+              makeTicketRecord({ status }, [makeSaleItem()]),
+            ),
           update: jest.fn(),
         },
       });
@@ -603,9 +733,9 @@ describe('SalesService', () => {
         callback(tx),
       );
 
-      await expect(service.confirm('ticket-1', {}, 'cashier-1')).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.confirm('ticket-1', {}, 'cashier-1'),
+      ).rejects.toThrow(ConflictException);
       expect(inventoryService.applySaleOut).not.toHaveBeenCalled();
     },
   );
@@ -652,7 +782,9 @@ describe('SalesService', () => {
       },
     });
     inventoryService.applySaleOut.mockRejectedValueOnce(
-      new ConflictException('Insufficient stock to confirm the sale ticket for the requested product.'),
+      new ConflictException(
+        'Insufficient stock to confirm the sale ticket for the requested product.',
+      ),
     );
 
     prismaService.$transaction.mockImplementationOnce(async (callback) =>
@@ -722,18 +854,15 @@ describe('SalesService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValueOnce(
-            makeTicketRecord(
-              {},
-              [
-                makeSaleItem({
-                  productId: 'product-1',
-                  product: {
-                    active: true,
-                    stockManagementType: StockManagementType.NON_STOCKED,
-                  },
-                }),
-              ],
-            ),
+            makeTicketRecord({}, [
+              makeSaleItem({
+                productId: 'product-1',
+                product: {
+                  active: true,
+                  stockManagementType: StockManagementType.NON_STOCKED,
+                },
+              }),
+            ]),
           )
           .mockResolvedValueOnce(
             makeTicketRecord(
@@ -901,17 +1030,14 @@ describe('SalesService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValueOnce(
-            makeTicketRecord(
-              { status: 'CONFIRMED' },
-              [
-                makeSaleItem({
-                  product: {
-                    active: true,
-                    stockManagementType: StockManagementType.NON_STOCKED,
-                  },
-                }),
-              ],
-            ),
+            makeTicketRecord({ status: 'CONFIRMED' }, [
+              makeSaleItem({
+                product: {
+                  active: true,
+                  stockManagementType: StockManagementType.NON_STOCKED,
+                },
+              }),
+            ]),
           )
           .mockResolvedValueOnce(
             makeTicketRecord(
@@ -994,7 +1120,9 @@ describe('SalesService', () => {
         saleTicket: {
           findUnique: jest
             .fn()
-            .mockResolvedValueOnce(makeTicketRecord({ status }, [makeSaleItem()])),
+            .mockResolvedValueOnce(
+              makeTicketRecord({ status }, [makeSaleItem()]),
+            ),
           update: jest.fn(),
         },
       });
@@ -1480,9 +1608,14 @@ describe('SalesService', () => {
       callback(tx),
     );
 
-    const result = await service.updateItem('ticket-1', 'item-1', {
-      quantity: 3,
-    }, 'manager-1');
+    const result = await service.updateItem(
+      'ticket-1',
+      'item-1',
+      {
+        quantity: 3,
+      },
+      'manager-1',
+    );
 
     expect(result.total).toBe('17999.97');
     expect(auditService.log).toHaveBeenCalledWith(

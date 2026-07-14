@@ -50,7 +50,8 @@ export class AuditController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar auditoria.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar auditoria.',
   })
   findAll(@Query() query: AuditLogQueryDto): Promise<AuditLogResponseDto[]> {
     return this.auditService.findAll(query);
@@ -76,7 +77,8 @@ export class AuditController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar auditoria.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar auditoria.',
   })
   findOne(
     @Param('id', new ParseUUIDPipe()) id: string,

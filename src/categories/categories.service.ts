@@ -6,6 +6,7 @@ import {
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../database/prisma.service';
 import { toCategoryResponse } from './category-response.mapper';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -31,9 +32,7 @@ export class CategoriesService {
     });
 
     if (existingCategory) {
-      throw new ConflictException(
-        'A category with this name already exists.',
-      );
+      throw new ConflictException('A category with this name already exists.');
     }
 
     const category = await this.runInTransaction(
@@ -65,10 +64,15 @@ export class CategoriesService {
     return toCategoryResponse(category);
   }
 
-  async findAll(active?: boolean): Promise<CategoryResponseDto[]> {
+  async findAll(
+    active?: boolean,
+    pagination: PaginationQueryDto = {},
+  ): Promise<CategoryResponseDto[]> {
     const categories = await this.prisma.category.findMany({
       where: typeof active === 'boolean' ? { active } : undefined,
       orderBy: { name: 'asc' },
+      ...(pagination.limit !== undefined ? { take: pagination.limit } : {}),
+      ...(pagination.offset !== undefined ? { skip: pagination.offset } : {}),
     });
 
     return categories.map(toCategoryResponse);
@@ -238,7 +242,10 @@ export class CategoriesService {
   }
 
   private handlePrismaNotFound(error: unknown, id: string): never | void {
-    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
       throw new NotFoundException(`Category with id "${id}" was not found.`);
     }
   }
@@ -259,10 +266,6 @@ export class CategoriesService {
       return callback(this.prisma as unknown as Prisma.TransactionClient);
     }
 
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return transactionResult;
   }
 }

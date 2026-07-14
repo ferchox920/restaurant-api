@@ -63,7 +63,8 @@ export class InventoryController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar inventario.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar inventario.',
   })
   getInventory(
     @Query() query: InventoryQueryDto,
@@ -90,7 +91,8 @@ export class InventoryController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar movimientos.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar movimientos.',
   })
   getMovements(
     @Query() query: InventoryMovementsQueryDto,
@@ -123,7 +125,8 @@ export class InventoryController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar inventario.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar inventario.',
   })
   getProductInventory(
     @Param('productId', new ParseUUIDPipe()) productId: string,
@@ -157,7 +160,8 @@ export class InventoryController {
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para consultar movimientos.',
+    description:
+      'El usuario autenticado no tiene permisos para consultar movimientos.',
   })
   getProductMovements(
     @Param('productId', new ParseUUIDPipe()) productId: string,
@@ -188,8 +192,7 @@ export class InventoryController {
     description: 'Producto no encontrado.',
   })
   @ApiConflictResponse({
-    description:
-      'Producto inactivo o no inventariable en Sprint 5.',
+    description: 'Producto inactivo o no inventariable en Sprint 5.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -258,14 +261,14 @@ export class InventoryController {
     description: 'Producto no encontrado.',
   })
   @ApiConflictResponse({
-    description:
-      'Producto inactivo, no inventariable o stock insuficiente.',
+    description: 'Producto inactivo, no inventariable o stock insuficiente.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para registrar merma.',
+    description:
+      'El usuario autenticado no tiene permisos para registrar merma.',
   })
   registerWaste(
     @Param('productId', new ParseUUIDPipe()) productId: string,
@@ -293,14 +296,14 @@ export class InventoryController {
     description: 'Producto no encontrado.',
   })
   @ApiConflictResponse({
-    description:
-      'Producto inactivo o no inventariable en Sprint 5.',
+    description: 'Producto inactivo o no inventariable en Sprint 5.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario autenticado no tiene permisos para registrar reingreso.',
+    description:
+      'El usuario autenticado no tiene permisos para registrar reingreso.',
   })
   returnIn(
     @Param('productId', new ParseUUIDPipe()) productId: string,

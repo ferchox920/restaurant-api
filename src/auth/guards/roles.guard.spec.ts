@@ -44,9 +44,9 @@ describe('RolesGuard', () => {
   it('throws Forbidden when role is insufficient', () => {
     reflector.getAllAndOverride.mockReturnValueOnce([Role.ADMIN]);
 
-    expect(() => guard.canActivate(createContext({ role: Role.CASHIER }))).toThrow(
-      ForbiddenException,
-    );
+    expect(() =>
+      guard.canActivate(createContext({ role: Role.CASHIER })),
+    ).toThrow(ForbiddenException);
   });
 
   it('allows access when the user has a required role', () => {

@@ -1,7 +1,7 @@
-import { Prisma } from '@prisma/client';
+import { User } from '@prisma/client';
 import { UserResponseDto } from './dto/user-response.dto';
 
-export type UserRecord = Prisma.UserGetPayload<Record<string, never>>;
+export type UserRecord = Omit<User, 'passwordHash'>;
 
 export function toUserResponse(user: UserRecord): UserResponseDto {
   return {

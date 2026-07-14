@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -24,6 +23,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ActivePaginationQueryDto } from '../common/dto/active-pagination-query.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -101,9 +101,9 @@ export class SalesChannelsController {
       'El usuario autenticado no tiene permisos para consultar canales de venta.',
   })
   findAll(
-    @Query('active') active?: string,
+    @Query() query: ActivePaginationQueryDto,
   ): Promise<SalesChannelResponseDto[]> {
-    return this.salesChannelsService.findAll(this.parseActiveFilter(active));
+    return this.salesChannelsService.findAll(query.active, query);
   }
 
   @Get(':id')
@@ -206,8 +206,7 @@ export class SalesChannelsController {
   @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Reactivar canal de venta',
-    description:
-      'Requiere JWT. Solo ADMIN y MANAGER pueden reactivar canales.',
+    description: 'Requiere JWT. Solo ADMIN y MANAGER pueden reactivar canales.',
   })
   @ApiOkResponse({
     description: 'Canal de venta reactivado correctamente.',
@@ -231,23 +230,5 @@ export class SalesChannelsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<SalesChannelResponseDto> {
     return this.salesChannelsService.reactivate(id, user.id);
-  }
-
-  private parseActiveFilter(active?: string): boolean | undefined {
-    if (active === undefined) {
-      return undefined;
-    }
-
-    if (active === 'true') {
-      return true;
-    }
-
-    if (active === 'false') {
-      return false;
-    }
-
-    throw new BadRequestException(
-      'Query parameter "active" must be either "true" or "false".',
-    );
   }
 }

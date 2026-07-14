@@ -1,8 +1,5 @@
 import { ProductResponseDto } from './dto/product-response.dto';
-import {
-  ProductUnit,
-  StockManagementType,
-} from './product.enums';
+import { ProductUnit, StockManagementType } from './product.enums';
 
 export type ProductRecord = {
   id: string;

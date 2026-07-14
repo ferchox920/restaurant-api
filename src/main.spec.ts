@@ -17,20 +17,14 @@ describe('main bootstrap helpers', () => {
   });
 
   it('rejects wildcard CORS in production when enabled', () => {
-    expect(() =>
-      validateProductionCors('production', true, '*'),
-    ).toThrow(
+    expect(() => validateProductionCors('production', true, '*')).toThrow(
       'CORS_ORIGIN must be a specific origin when CORS_ENABLED=true in production.',
     );
   });
 
   it('allows explicit origins in production', () => {
     expect(() =>
-      validateProductionCors(
-        'production',
-        true,
-        'https://admin.example.com',
-      ),
+      validateProductionCors('production', true, 'https://admin.example.com'),
     ).not.toThrow();
   });
 

@@ -1,12 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { IsNotBefore } from '../../common/validation/is-not-before.decorator';
 import {
   SaleTicketStatus,
   type SaleTicketStatus as SaleTicketStatusValue,
 } from '../sales.enums';
 
-export class SaleTicketQueryDto {
+export class SaleTicketQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: SaleTicketStatus,
     example: SaleTicketStatus.DRAFT,
@@ -37,6 +39,7 @@ export class SaleTicketQueryDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @IsNotBefore('from')
   to?: Date;
 
   @ApiPropertyOptional({

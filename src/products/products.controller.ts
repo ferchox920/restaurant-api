@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -38,6 +37,9 @@ import { ProductPriceResponseDto } from './dto/product-price-response.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
+import { ProductQueryDto } from './dto/product-query.dto';
+import { ProductPriceHistoryQueryDto } from './dto/product-price-history-query.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @ApiTags('products')
 @ApiBearerAuth('bearer')
@@ -113,8 +115,7 @@ export class ProductsController {
     isArray: true,
   })
   @ApiBadRequestResponse({
-    description:
-      'El parametro active debe ser true o false si se envia.',
+    description: 'El parametro active debe ser true o false si se envia.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -123,16 +124,8 @@ export class ProductsController {
     description:
       'El usuario autenticado no tiene permisos para consultar productos.',
   })
-  findAll(
-    @Query('active') active?: string,
-    @Query('categoryId') categoryId?: string,
-    @Query('search') search?: string,
-  ): Promise<ProductResponseDto[]> {
-    return this.productsService.findAll({
-      active: this.parseActiveFilter(active),
-      categoryId,
-      search,
-    });
+  findAll(@Query() query: ProductQueryDto): Promise<ProductResponseDto[]> {
+    return this.productsService.findAll(query);
   }
 
   @Get(':id')
@@ -225,8 +218,9 @@ export class ProductsController {
   })
   findCostHistory(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: PaginationQueryDto,
   ): Promise<ProductCostResponseDto[]> {
-    return this.productCostsService.findHistory(id);
+    return this.productCostsService.findHistory(id, query);
   }
 
   @Get(':id/costs/current')
@@ -312,7 +306,8 @@ export class ProductsController {
     isArray: true,
   })
   @ApiBadRequestResponse({
-    description: 'El id informado o channelId deben ser UUID validos si se envian.',
+    description:
+      'El id informado o channelId deben ser UUID validos si se envian.',
   })
   @ApiNotFoundResponse({
     description: 'Producto o canal no encontrado.',
@@ -326,19 +321,9 @@ export class ProductsController {
   })
   findPriceHistory(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Query('channelId') channelId?: string,
+    @Query() query: ProductPriceHistoryQueryDto,
   ): Promise<ProductPriceResponseDto[]> {
-    return this.findPriceHistoryInternal(id, channelId);
-  }
-
-  private async findPriceHistoryInternal(
-    id: string,
-    channelId?: string,
-  ): Promise<ProductPriceResponseDto[]> {
-    return this.productPricesService.findHistory(
-      id,
-      await this.parseOptionalUuid(channelId, 'channelId'),
-    );
+    return this.productPricesService.findHistory(id, query.channelId, query);
   }
 
   @Get(':id/prices/current')
@@ -473,39 +458,5 @@ export class ProductsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProductResponseDto> {
     return this.productsService.reactivate(id, user.id);
-  }
-
-  private parseActiveFilter(active?: string): boolean | undefined {
-    if (active === undefined) {
-      return undefined;
-    }
-
-    if (active === 'true') {
-      return true;
-    }
-
-    if (active === 'false') {
-      return false;
-    }
-
-    throw new BadRequestException(
-      'Query parameter "active" must be either "true" or "false".',
-    );
-  }
-
-  private async parseOptionalUuid(
-    value: string | undefined,
-    fieldName: string,
-  ): Promise<string | undefined> {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    const uuidPipe = new ParseUUIDPipe();
-    return await uuidPipe.transform(value, {
-      type: 'query',
-      metatype: String,
-      data: fieldName,
-    });
   }
 }

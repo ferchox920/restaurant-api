@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   HealthReadinessResponse,
   HealthResponse,
@@ -8,6 +9,7 @@ import {
 
 @ApiTags('health')
 @Controller('health')
+@SkipThrottle()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
@@ -29,7 +31,9 @@ export class HealthController {
   }
 
   @Get('readiness')
-  @ApiOperation({ summary: 'Readiness check con verificacion de base de datos' })
+  @ApiOperation({
+    summary: 'Readiness check con verificacion de base de datos',
+  })
   @ApiOkResponse({
     description: 'La API y la base de datos estan listas para recibir trafico.',
     schema: {

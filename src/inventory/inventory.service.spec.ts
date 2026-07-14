@@ -618,7 +618,11 @@ describe('InventoryService', () => {
     });
 
     await expect(
-      service.stockIn('product-1', { quantity: 1, reason: 'Carga' }, 'manager-1'),
+      service.stockIn(
+        'product-1',
+        { quantity: 1, reason: 'Carga' },
+        'manager-1',
+      ),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -634,7 +638,11 @@ describe('InventoryService', () => {
     });
 
     await expect(
-      service.stockIn('product-1', { quantity: 1, reason: 'Carga' }, 'manager-1'),
+      service.stockIn(
+        'product-1',
+        { quantity: 1, reason: 'Carga' },
+        'manager-1',
+      ),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -650,7 +658,11 @@ describe('InventoryService', () => {
     });
 
     await expect(
-      service.stockIn('product-1', { quantity: 1, reason: 'Carga' }, 'manager-1'),
+      service.stockIn(
+        'product-1',
+        { quantity: 1, reason: 'Carga' },
+        'manager-1',
+      ),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -669,7 +681,10 @@ describe('InventoryService', () => {
       },
     } as unknown as Prisma.TransactionClient;
 
-    const stock = await service.getOrCreateProductStockForUpdate(tx, 'product-1');
+    const stock = await service.getOrCreateProductStockForUpdate(
+      tx,
+      'product-1',
+    );
 
     expect(stock.currentStock).toEqual(new Decimal('0'));
   });

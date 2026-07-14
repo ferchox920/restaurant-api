@@ -7,12 +7,20 @@ import {
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { PrismaService } from '../database/prisma.service';
 import { CommissionType } from './sales-channel.enums';
 import { toSalesChannelResponse } from './sales-channel-response.mapper';
 import { CreateSalesChannelDto } from './dto/create-sales-channel.dto';
 import { UpdateSalesChannelDto } from './dto/update-sales-channel.dto';
 import { SalesChannelResponseDto } from './dto/sales-channel-response.dto';
+import { SalesChannelSubTaxInputDto } from './dto/sales-channel-sub-tax.dto';
+
+const salesChannelInclude = {
+  subTaxes: {
+    orderBy: { name: 'asc' as const },
+  },
+};
 
 @Injectable()
 export class SalesChannelsService {
@@ -32,11 +40,9 @@ export class SalesChannelsService {
       createSalesChannelDto.code,
     );
 
-    const commissionType =
-      createSalesChannelDto.commissionType ?? CommissionType.NONE;
-    const commissionValue = createSalesChannelDto.commissionValue ?? 0;
+    const subTaxes = createSalesChannelDto.subTaxes ?? [];
 
-    this.validateCommissionRules(commissionType, commissionValue);
+    this.validateSubTaxes(subTaxes);
 
     const salesChannel = await this.runInTransaction(
       async (tx: Prisma.TransactionClient) => {
@@ -45,10 +51,17 @@ export class SalesChannelsService {
             name: createSalesChannelDto.name,
             code: createSalesChannelDto.code,
             description: createSalesChannelDto.description ?? null,
-            commissionType,
-            commissionValue,
+            commissionType: CommissionType.NONE,
+            commissionValue: 0,
             createdById,
+            subTaxes: {
+              create: subTaxes.map((subTax) => ({
+                name: subTax.name,
+                percentage: subTax.percentage,
+              })),
+            },
           },
+          include: salesChannelInclude,
         });
 
         await this.auditService.log(
@@ -70,10 +83,16 @@ export class SalesChannelsService {
     return toSalesChannelResponse(salesChannel);
   }
 
-  async findAll(active?: boolean): Promise<SalesChannelResponseDto[]> {
+  async findAll(
+    active?: boolean,
+    pagination: PaginationQueryDto = {},
+  ): Promise<SalesChannelResponseDto[]> {
     const salesChannels = await this.prisma.salesChannel.findMany({
       where: typeof active === 'boolean' ? { active } : undefined,
       orderBy: { name: 'asc' },
+      ...(pagination.limit !== undefined ? { take: pagination.limit } : {}),
+      ...(pagination.offset !== undefined ? { skip: pagination.offset } : {}),
+      include: salesChannelInclude,
     });
 
     return salesChannels.map(toSalesChannelResponse);
@@ -82,6 +101,7 @@ export class SalesChannelsService {
   async findOne(id: string): Promise<SalesChannelResponseDto> {
     const salesChannel = await this.prisma.salesChannel.findUnique({
       where: { id },
+      include: salesChannelInclude,
     });
 
     if (!salesChannel) {
@@ -100,6 +120,7 @@ export class SalesChannelsService {
   ): Promise<SalesChannelResponseDto> {
     const existingSalesChannel = await this.prisma.salesChannel.findUnique({
       where: { id },
+      include: salesChannelInclude,
     });
 
     if (!existingSalesChannel) {
@@ -140,13 +161,9 @@ export class SalesChannelsService {
       }
     }
 
-    const commissionType =
-      updateSalesChannelDto.commissionType ?? existingSalesChannel.commissionType;
-    const commissionValue =
-      updateSalesChannelDto.commissionValue ??
-      Number(existingSalesChannel.commissionValue);
+    this.validateSubTaxes(updateSalesChannelDto.subTaxes);
 
-    this.validateCommissionRules(commissionType, commissionValue);
+    const { subTaxes, ...salesChannelData } = updateSalesChannelDto;
 
     try {
       const salesChannel = await this.runInTransaction(
@@ -154,14 +171,25 @@ export class SalesChannelsService {
           const updatedSalesChannel = await tx.salesChannel.update({
             where: { id },
             data: {
-              ...updateSalesChannelDto,
+              ...salesChannelData,
               description:
                 updateSalesChannelDto.description === undefined
                   ? undefined
                   : updateSalesChannelDto.description,
-              commissionType,
-              commissionValue,
+              commissionType: CommissionType.NONE,
+              commissionValue: 0,
+              subTaxes:
+                subTaxes === undefined
+                  ? undefined
+                  : {
+                      deleteMany: {},
+                      create: subTaxes.map((subTax) => ({
+                        name: subTax.name,
+                        percentage: subTax.percentage,
+                      })),
+                    },
             },
+            include: salesChannelInclude,
           });
 
           await this.auditService.log(
@@ -227,6 +255,7 @@ export class SalesChannelsService {
           const updatedSalesChannel = await tx.salesChannel.update({
             where: { id },
             data: { active },
+            include: salesChannelInclude,
           });
 
           await this.auditService.log(
@@ -269,6 +298,7 @@ export class SalesChannelsService {
   private findSalesChannel(id: string) {
     return this.prisma.salesChannel.findUnique({
       where: { id },
+      include: salesChannelInclude,
     });
   }
 
@@ -297,34 +327,37 @@ export class SalesChannelsService {
     }
   }
 
-  private validateCommissionRules(
-    commissionType: CommissionType,
-    commissionValue: number,
+  private validateSubTaxes(
+    subTaxes: SalesChannelSubTaxInputDto[] | undefined,
   ): void {
-    if (commissionType === CommissionType.NONE && commissionValue !== 0) {
-      throw new BadRequestException(
-        'commissionValue must be 0 when commissionType is NONE.',
-      );
+    if (!subTaxes) {
+      return;
     }
 
-    if (
-      commissionType === CommissionType.PERCENTAGE &&
-      (commissionValue < 0 || commissionValue > 100)
-    ) {
-      throw new BadRequestException(
-        'commissionValue must be between 0 and 100 when commissionType is PERCENTAGE.',
-      );
-    }
+    const names = new Set<string>();
 
-    if (commissionType === CommissionType.FIXED && commissionValue < 0) {
-      throw new BadRequestException(
-        'commissionValue must be greater than or equal to 0 when commissionType is FIXED.',
-      );
+    for (const subTax of subTaxes) {
+      const normalizedName = subTax.name.trim().toLowerCase();
+
+      if (!normalizedName) {
+        throw new BadRequestException('subTaxes.name cannot be empty.');
+      }
+
+      if (names.has(normalizedName)) {
+        throw new BadRequestException(
+          'subTaxes cannot contain duplicated names for the same sales channel.',
+        );
+      }
+
+      names.add(normalizedName);
     }
   }
 
   private handlePrismaNotFound(error: unknown, id: string): never | void {
-    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
       throw new NotFoundException(
         `Sales channel with id "${id}" was not found.`,
       );
@@ -347,10 +380,6 @@ export class SalesChannelsService {
       return callback(this.prisma as unknown as Prisma.TransactionClient);
     }
 
-    return transactionResult.then((result) =>
-        result === undefined
-          ? callback(this.prisma as unknown as Prisma.TransactionClient)
-          : result,
-      );
+    return transactionResult;
   }
 }
