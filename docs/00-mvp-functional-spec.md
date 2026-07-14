@@ -168,7 +168,7 @@ Registro de eventos sensibles para soporte de control interno, revision y trazab
 - Definiciones insuficientes de roles y permisos pueden generar huecos de control interno.
 - Si no se delimitan con precision los casos de anulacion, la reversion de stock puede resultar inconsistente.
 
-## Resumen de decisiones funcionales del Sprint 0
+## Resumen de decisiones funcionales
 
 - El MVP cubre solo backend/API administrativo; no incluye frontend.
 - El inventario del MVP es exclusivamente de producto finalizado.

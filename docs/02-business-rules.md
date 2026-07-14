@@ -136,7 +136,7 @@ Si un usuario cambia el precio vigente de un producto para PedidosYa, el sistema
 - No debe permitirse editar manualmente un saldo de stock por fuera del mecanismo de movimientos.
 - No debe permitirse eliminar fisicamente entidades con historial operativo relevante.
 
-## Casos para Precisar en Sprints Siguientes
+## Decisiones Pendientes
 
 - Definir reglas operativas mas detalladas para `RETURN_IN`, incluyendo si exigira validacion adicional sobre condicion del producto devuelto.
 - Definir el detalle minimo obligatorio de motivos de anulacion y ajustes manuales.

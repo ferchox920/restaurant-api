@@ -6,7 +6,7 @@ import { StockInDto } from './stock-in.dto';
 import { UpdateMinimumStockDto } from './update-minimum-stock.dto';
 import { WasteDto } from './waste.dto';
 
-describe('Sprint 5 inventory DTOs', () => {
+describe('inventory DTOs', () => {
   it('accepts stock in payload with quantity greater than 0', () => {
     const dto = plainToInstance(StockInDto, {
       quantity: 2.5,

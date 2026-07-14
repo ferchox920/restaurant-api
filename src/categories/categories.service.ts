@@ -230,17 +230,6 @@ export class CategoriesService {
     });
   }
 
-  private async ensureCategoryExists(id: string): Promise<void> {
-    const category = await this.prisma.category.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!category) {
-      throw new NotFoundException(`Category with id "${id}" was not found.`);
-    }
-  }
-
   private handlePrismaNotFound(error: unknown, id: string): never | void {
     if (
       error instanceof PrismaClientKnownRequestError &&

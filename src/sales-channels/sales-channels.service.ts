@@ -283,18 +283,6 @@ export class SalesChannelsService {
     }
   }
 
-  private async getSalesChannelOrThrow(id: string) {
-    const salesChannel = await this.findSalesChannel(id);
-
-    if (!salesChannel) {
-      throw new NotFoundException(
-        `Sales channel with id "${id}" was not found.`,
-      );
-    }
-
-    return salesChannel;
-  }
-
   private findSalesChannel(id: string) {
     return this.prisma.salesChannel.findUnique({
       where: { id },

@@ -9,7 +9,7 @@ import { UpdateSaleTicketItemDto } from './update-sale-ticket-item.dto';
 import { UpdateSaleTicketDto } from './update-sale-ticket.dto';
 import { VoidSaleTicketDto } from './void-sale-ticket.dto';
 
-describe('Sprint 6 sale ticket DTOs', () => {
+describe('sale ticket DTOs', () => {
   it('accepts create sale ticket payload with valid salesChannelId', () => {
     const dto = plainToInstance(CreateSaleTicketDto, {
       salesChannelId: '0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4',

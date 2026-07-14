@@ -4,7 +4,7 @@ API administrativa para gestion operativa de restaurantes construida con `NestJS
 
 ## Estado actual del MVP
 
-El proyecto llega a Sprint 10 con foco en cierre tecnico y documental del MVP. La API ya permite:
+La API permite:
 
 - autenticar usuarios internos con JWT;
 - gestionar usuarios;
@@ -222,7 +222,7 @@ Endpoint de readiness con verificacion simple de base de datos. No requiere aute
 - `CORS_ORIGIN` acepta un origen unico o una lista CSV.
 - En `development` y `test`, si CORS esta habilitado y `CORS_ORIGIN` queda vacio, la app acepta cualquier origen.
 - En `production`, `CORS_ENABLED=true` requiere `CORS_ORIGIN` especifico.
-- Sprint 11 agrega `helmet` y limita payloads JSON/urlencoded a `1mb`.
+- `helmet` agrega cabeceras de seguridad y los payloads JSON/urlencoded se limitan a `1mb`.
 - La API limita cada IP a 100 solicitudes por minuto y el login a 5 intentos por minuto.
 - Si la API se publica detras de un proxy, `TRUST_PROXY_HOPS` debe reflejar la topologia real para que el limite use la IP del cliente.
 
@@ -404,10 +404,9 @@ Politica de uso del seed:
 - `docker-compose.yml` facilita levantar PostgreSQL local.
 - El proyecto queda preparado para configurar Railway sin ejecutar deploy real desde este repositorio.
 - Antes de iniciar la app en Railway, ejecutar migraciones por separado con `npm run prisma:migrate:deploy`.
-- Guia especifica: [Deploy en Railway](/D:/PersonalProyect/restaurat-api/docs/21-railway-deploy-guide.md)
-- Checklist operativo: [Post-deploy checklist](/D:/PersonalProyect/restaurat-api/docs/22-post-deploy-checklist.md)
-- Politica de demo: [Demo environment notes](/D:/PersonalProyect/restaurat-api/docs/23-demo-environment-notes.md)
-- Validacion local: [Local production validation](/D:/PersonalProyect/restaurat-api/docs/24-local-production-validation.md)
+- Guia especifica: [Deploy en Railway](docs/21-railway-deploy-guide.md)
+- Checklist operativo: [Post-deploy checklist](docs/22-post-deploy-checklist.md)
+- Politica de demo: [Demo environment notes](docs/23-demo-environment-notes.md)
 
 ## Credenciales demo sugeridas
 
@@ -425,13 +424,15 @@ npm run prisma:seed
 
 ## Documentacion adicional
 
-- [Especificacion funcional MVP](/D:/PersonalProyect/restaurat-api/docs/00-mvp-functional-spec.md)
-- [Flujo principal](/D:/PersonalProyect/restaurat-api/docs/07-main-business-flow.md)
-- [Sprint 9 - Reportes operativos](/D:/PersonalProyect/restaurat-api/docs/16-sprint-9-operational-reports.md)
-- [Sprint 10 - MVP Release Readiness](/D:/PersonalProyect/restaurat-api/docs/17-sprint-10-mvp-release-readiness.md)
-- [Guia demo end-to-end](/D:/PersonalProyect/restaurat-api/docs/18-mvp-demo-flow.md)
-- [Plan tecnico e2e](/D:/PersonalProyect/restaurat-api/docs/19-e2e-test-plan.md)
-- [Deploy en Railway](/D:/PersonalProyect/restaurat-api/docs/21-railway-deploy-guide.md)
-- [Checklist operativo post-deploy](/D:/PersonalProyect/restaurat-api/docs/22-post-deploy-checklist.md)
-- [Notas de entorno demo](/D:/PersonalProyect/restaurat-api/docs/23-demo-environment-notes.md)
-- [Validacion local productiva](/D:/PersonalProyect/restaurat-api/docs/24-local-production-validation.md)
+- [Especificacion funcional](docs/00-mvp-functional-spec.md)
+- [Entidades de dominio](docs/01-domain-entities.md)
+- [Reglas de negocio](docs/02-business-rules.md)
+- [Estados de tickets](docs/03-ticket-states.md)
+- [Movimientos de inventario](docs/04-inventory-movements.md)
+- [Roles y permisos](docs/05-roles-and-permissions.md)
+- [Criterios de aceptacion](docs/06-acceptance-criteria.md)
+- [Flujo principal](docs/07-main-business-flow.md)
+- [Guia demo end-to-end](docs/18-mvp-demo-flow.md)
+- [Deploy en Railway](docs/21-railway-deploy-guide.md)
+- [Checklist operativo post-deploy](docs/22-post-deploy-checklist.md)
+- [Notas de entorno demo](docs/23-demo-environment-notes.md)

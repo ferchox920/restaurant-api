@@ -119,7 +119,7 @@ export class InventoryController {
   })
   @ApiConflictResponse({
     description:
-      'El producto no participa en inventario de Sprint 5 porque es NON_STOCKED o RECIPE_BASED.',
+      'El producto no participa en inventario porque es NON_STOCKED o RECIPE_BASED.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -154,7 +154,7 @@ export class InventoryController {
   })
   @ApiConflictResponse({
     description:
-      'El producto no participa en inventario de Sprint 5 porque es NON_STOCKED o RECIPE_BASED.',
+      'El producto no participa en inventario porque es NON_STOCKED o RECIPE_BASED.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -192,7 +192,7 @@ export class InventoryController {
     description: 'Producto no encontrado.',
   })
   @ApiConflictResponse({
-    description: 'Producto inactivo o no inventariable en Sprint 5.',
+    description: 'Producto inactivo o no inventariable.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -296,7 +296,7 @@ export class InventoryController {
     description: 'Producto no encontrado.',
   })
   @ApiConflictResponse({
-    description: 'Producto inactivo o no inventariable en Sprint 5.',
+    description: 'Producto inactivo o no inventariable.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',
@@ -332,7 +332,7 @@ export class InventoryController {
   })
   @ApiConflictResponse({
     description:
-      'El producto no participa en inventario de Sprint 5 porque es NON_STOCKED o RECIPE_BASED.',
+      'El producto no participa en inventario porque es NON_STOCKED o RECIPE_BASED.',
   })
   @ApiUnauthorizedResponse({
     description: 'Token ausente o invalido.',

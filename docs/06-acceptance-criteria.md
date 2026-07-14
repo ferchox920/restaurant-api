@@ -1,45 +1,13 @@
 # Acceptance Criteria
 
-Este documento define los criterios de aceptacion globales del Sprint 0 y del MVP funcional de la API administrativa del restaurante. Su objetivo es convertir las decisiones del alcance en condiciones verificables que permitan validar si el sistema o la documentacion cumplen con lo esperado.
+Este documento define los criterios de aceptacion funcional de la API administrativa del restaurante. Su objetivo es convertir las decisiones del alcance en condiciones verificables.
 
 ## Objetivo del Documento
 
-- Establecer condiciones de aceptacion claras para el Sprint 0.
 - Definir resultados funcionales esperados para el MVP.
-- Separar entregables documentales de capacidades operativas futuras.
-- Facilitar validacion, planificacion y priorizacion de implementacion.
+- Facilitar la validacion del comportamiento implementado.
 
-## 1. Criterios de Aceptacion del Sprint 0
-
-Se considerara aceptado el Sprint 0 cuando se cumplan todos los siguientes puntos:
-
-- Existe documento funcional del MVP.
-- Existe lista de entidades principales.
-- Existen reglas de negocio documentadas.
-- Existen estados de ticket documentados.
-- Existen tipos de movimiento de inventario documentados.
-- Existen roles iniciales documentados.
-- Existe flujo principal del sistema documentado.
-- Las decisiones del MVP estan claramente separadas de funcionalidades futuras.
-- El inventario queda definido como inventario de producto finalizado.
-- Queda explicito que insumos y recetas no entran todavia.
-
-### Condiciones de Verificacion del Sprint 0
-
-- El archivo de especificacion funcional describe objetivo, alcance, exclusiones y principios del MVP.
-- El documento de entidades identifica las entidades obligatorias del dominio y sus relaciones conceptuales.
-- El documento de reglas de negocio refleja las restricciones operativas principales del sistema.
-- El documento de estados de ticket define estados, transiciones permitidas y bloqueadas.
-- El documento de movimientos de inventario define tipos, reglas y reconstruccion de stock.
-- El documento de roles define perfiles iniciales y sus alcances funcionales.
-- El flujo principal del sistema muestra una secuencia operativa coherente desde configuracion hasta venta y anulacion.
-- Los temas fuera de alcance, como insumos, recetas, proveedores o multiples sucursales, estan explicitamente diferenciados del MVP.
-
-### Resultado Esperado del Sprint 0
-
-Al finalizar el Sprint 0 debe existir una base documental consistente, suficiente para iniciar modelado tecnico del sistema sin ambiguedades graves sobre alcance, dominio ni reglas principales.
-
-## 2. Criterios de Aceptacion del MVP Funcional
+## Criterios de Aceptacion del MVP Funcional
 
 Se considerara aceptado el MVP funcional cuando el sistema permita cumplir los siguientes resultados de negocio y operacion:
 
@@ -118,9 +86,3 @@ Para considerar aceptado el MVP no sera necesario incluir:
 - Frontend o panel administrativo.
 
 La aceptacion del MVP depende de resolver correctamente producto terminado, stock, historizacion de costo y precio, ciclo de vida del ticket, anulaciones y trazabilidad.
-
-## Observaciones Finales
-
-- Los criterios de Sprint 0 validan claridad documental y definicion funcional.
-- Los criterios del MVP funcional validan comportamiento del sistema ya implementado.
-- Esta separacion evita mezclar avance de analisis con avance real de producto.

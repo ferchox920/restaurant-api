@@ -367,8 +367,7 @@ export class ProductsController {
   @Roles('ADMIN', 'MANAGER')
   @ApiOperation({
     summary: 'Actualizar producto',
-    description:
-      'Requiere JWT. Solo ADMIN y MANAGER pueden editar productos. Costos y precios se implementaran en Sprint 4; stock en Sprint 5.',
+    description: 'Requiere JWT. Solo ADMIN y MANAGER pueden editar productos.',
   })
   @ApiOkResponse({
     description: 'Producto actualizado correctamente.',

@@ -141,7 +141,7 @@ export class CategoriesController {
   @ApiOperation({
     summary: 'Actualizar categoria',
     description:
-      'Requiere JWT. Solo ADMIN y MANAGER pueden editar categorias. Las categorias inactivas no deberian usarse para nuevos productos en sprints posteriores.',
+      'Requiere JWT. Solo ADMIN y MANAGER pueden editar categorias. Las categorias inactivas no pueden usarse para nuevos productos.',
   })
   @ApiOkResponse({
     description: 'Categoria actualizada correctamente.',

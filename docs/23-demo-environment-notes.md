@@ -1,4 +1,4 @@
-# Sprint 11 - Demo Environment Notes
+# Demo Environment Notes
 
 ## Objetivo
 
@@ -56,7 +56,7 @@ En produccion:
 
 ## Como resetear una base demo
 
-No se agregan scripts destructivos automaticos en Sprint 11.
+No se incluyen scripts destructivos automaticos.
 
 Reset recomendado, siempre en un entorno demo aislado:
 

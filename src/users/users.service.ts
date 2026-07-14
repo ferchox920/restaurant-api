@@ -223,17 +223,6 @@ export class UsersService {
     });
   }
 
-  private async ensureUserExists(id: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException(`User with id "${id}" was not found.`);
-    }
-  }
-
   private async ensureAdminDeactivationAllowed(
     user: { role: string; active: boolean },
     tx: Prisma.TransactionClient,

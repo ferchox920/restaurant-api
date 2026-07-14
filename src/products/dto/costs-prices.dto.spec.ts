@@ -3,7 +3,7 @@ import { validateSync } from 'class-validator';
 import { CreateProductCostDto } from './create-product-cost.dto';
 import { CreateProductPriceDto } from './create-product-price.dto';
 
-describe('Sprint 4 cost and price DTOs', () => {
+describe('cost and price DTOs', () => {
   it('accepts cost 0', () => {
     const dto = plainToInstance(CreateProductCostDto, { cost: 0 });
 

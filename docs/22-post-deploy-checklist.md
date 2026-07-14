@@ -1,4 +1,4 @@
-# Sprint 11 - Post-Deploy Checklist
+# Post-Deploy Checklist
 
 Checklist manual para validar que el deploy quedo operativo despues de publicar la API. Reemplazar placeholders antes de ejecutar:
 

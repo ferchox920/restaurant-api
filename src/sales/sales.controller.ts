@@ -124,7 +124,7 @@ export class SalesController {
   @ApiOperation({
     summary: 'Actualizar ticket en borrador',
     description:
-      'Requiere JWT. Solo permite actualizar tickets en estado DRAFT. En Sprint 6 solo se actualizan notas.',
+      'Requiere JWT. Solo permite actualizar las notas de tickets en estado DRAFT.',
   })
   @ApiOkResponse({
     description: 'Ticket actualizado.',

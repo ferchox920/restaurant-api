@@ -141,7 +141,7 @@ export class SalesChannelsController {
   @ApiOperation({
     summary: 'Actualizar canal de venta',
     description:
-      'Requiere JWT. Solo ADMIN y MANAGER pueden editar canales. Un canal inactivo no deberia usarse para ventas futuras en sprints posteriores.',
+      'Requiere JWT. Solo ADMIN y MANAGER pueden editar canales. Un canal inactivo no puede usarse para nuevas ventas.',
   })
   @ApiOkResponse({
     description: 'Canal de venta actualizado correctamente.',

@@ -1,4 +1,4 @@
-# Sprint 11 - Railway Deploy Guide
+# Railway Deploy Guide
 
 ## 1. Requisitos previos
 
