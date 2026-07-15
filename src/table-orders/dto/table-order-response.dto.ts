@@ -3,6 +3,9 @@ import { SaleTicketResponseDto } from '../../sales/dto/sale-ticket-response.dto'
 import { TableOrderStatus } from '../table-orders.enums';
 
 export class TableOrderResponseDto {
+  @ApiProperty({ example: '1' })
+  version!: string;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 

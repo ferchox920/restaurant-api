@@ -1,8 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Allow, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { SalePaymentMethod } from '../sales.enums';
+import { ExpectedVersionDto } from '../../common/dto/expected-version.dto';
 
-export class ConfirmSaleTicketDto {
+export class ConfirmSaleTicketDto extends ExpectedVersionDto {
   @ApiPropertyOptional({
     enum: SalePaymentMethod,
     example: SalePaymentMethod.CASH,

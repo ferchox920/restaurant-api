@@ -1,8 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { SalePaymentMethod } from '../sales.enums';
+import { ExpectedVersionDto } from '../../common/dto/expected-version.dto';
 
-export class UpdateSaleTicketDto {
+export class UpdateSaleTicketDto extends ExpectedVersionDto {
   @ApiPropertyOptional({ example: 'Cliente solicita sin cebolla.' })
   @IsOptional()
   @IsString()

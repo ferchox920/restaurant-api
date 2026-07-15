@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -38,13 +39,19 @@ import { OpenTableOrderDto } from './dto/open-table-order.dto';
 import { TableOrderQueryDto } from './dto/table-order-query.dto';
 import { TableOrderResponseDto } from './dto/table-order-response.dto';
 import { TableOrdersService } from './table-orders.service';
+import { IdempotencyService } from '../idempotency/idempotency.service';
 
 @ApiTags('table-orders')
 @ApiBearerAuth('bearer')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller()
 export class TableOrdersController {
-  constructor(private readonly tableOrdersService: TableOrdersService) {}
+  constructor(
+    private readonly tableOrdersService: TableOrdersService,
+    private readonly idempotency: IdempotencyService = {
+      execute: ({ run }: { run: () => Promise<unknown> }) => run(),
+    } as unknown as IdempotencyService,
+  ) {}
 
   @Get('table-orders')
   @Roles(Role.ADMIN, Role.MANAGER, Role.CASHIER, Role.AUDITOR)
@@ -215,7 +222,14 @@ export class TableOrdersController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ConfirmSaleTicketDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<TableOrderResponseDto> {
-    return this.tableOrdersService.close(id, dto, user.id);
+    return this.idempotency.execute({
+      key: idempotencyKey,
+      userId: user.id,
+      operation: `table-order.close:${id}`,
+      body: dto,
+      run: () => this.tableOrdersService.close(id, dto, user.id),
+    });
   }
 }

@@ -21,6 +21,7 @@ import { SalesByUserQueryDto } from './dto/sales-by-user-query.dto';
 import { SalesByUserReportResponseDto } from './dto/sales-by-user-report-response.dto';
 import { StockReportQueryDto } from './dto/stock-report-query.dto';
 import { StockReportResponseDto } from './dto/stock-report-response.dto';
+import { StockReportPagedResponseDto } from './dto/stock-report-paged-response.dto';
 import { ReportsService } from './reports.service';
 
 @ApiTags('reports')
@@ -50,7 +51,7 @@ export class ReportsController {
   })
   getStockReport(
     @Query() query: StockReportQueryDto,
-  ): Promise<StockReportResponseDto[]> {
+  ): Promise<StockReportResponseDto[] | StockReportPagedResponseDto> {
     return this.reportsService.getStockReport(query);
   }
 

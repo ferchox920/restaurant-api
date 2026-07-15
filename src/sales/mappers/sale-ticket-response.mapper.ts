@@ -27,6 +27,7 @@ export type SaleTicketRecord = {
   confirmedAt: Date | null;
   cancelledAt: Date | null;
   voidedAt: Date | null;
+  version?: bigint;
   salesChannel: {
     name: string;
   } | null;
@@ -65,6 +66,7 @@ export function toSaleTicketResponse(
     confirmedAt: ticket.confirmedAt,
     cancelledAt: ticket.cancelledAt,
     voidedAt: ticket.voidedAt,
+    version: (ticket.version ?? 1n).toString(),
     items: ticket.items.map(toSaleTicketItemResponse),
   };
 }

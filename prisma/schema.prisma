@@ -146,6 +146,22 @@ model User {
   openedTableOrders    TableOrder[]      @relation("TableOrderOpenedBy")
   cancelledTableOrders TableOrder[]      @relation("TableOrderCancelledBy")
   closedTableOrders    TableOrder[]      @relation("TableOrderClosedBy")
+  authSessions         AuthSession[]
+}
+
+model AuthSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  jtiHash        String    @unique
+  userId         String    @db.Uuid
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  device         String?
+  lastActivityAt DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model Category {
@@ -226,6 +242,7 @@ model ProductStock {
   minimumStock Decimal  @default(0) @db.Decimal(10, 2)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  version      BigInt   @default(1)
   product      Product  @relation(fields: [productId], references: [id])
 }
 
@@ -305,6 +322,7 @@ model SaleTicket {
   confirmedAt             DateTime?
   cancelledAt             DateTime?
   voidedAt                DateTime?
+  version                 BigInt             @default(1)
   salesChannel            SalesChannel       @relation(fields: [salesChannelId], references: [id])
   paymentBank             PaymentBank?       @relation(fields: [paymentBankId], references: [id])
   items                   SaleTicketItem[]
@@ -350,6 +368,7 @@ model RestaurantTable {
   createdById String?      @db.Uuid
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  version     BigInt       @default(1)
   createdBy   User?        @relation("RestaurantTableCreatedBy", fields: [createdById], references: [id])
   orders      TableOrder[]
 
@@ -372,6 +391,7 @@ model TableOrder {
   closedAt          DateTime?
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
+  version           BigInt                     @default(1)
   restaurantTable   RestaurantTable            @relation(fields: [restaurantTableId], references: [id])
   saleTicket        SaleTicket                 @relation(fields: [saleTicketId], references: [id])
   openedBy          User?                      @relation("TableOrderOpenedBy", fields: [openedById], references: [id])
@@ -412,4 +432,28 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@index([userId, createdAt])
+}
+
+model OperationEvent {
+  id         BigInt   @id @default(autoincrement())
+  type       String
+  entityType String
+  entityId   String
+  version    BigInt
+  related    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  keyHash     String   @unique
+  requestHash String
+  response    Json?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([expiresAt])
 }

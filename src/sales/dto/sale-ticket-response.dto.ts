@@ -3,6 +3,9 @@ import { SaleTicketItemResponseDto } from './sale-ticket-item-response.dto';
 import { SalePaymentMethod, SaleTicketStatus } from '../sales.enums';
 
 export class SaleTicketResponseDto {
+  @ApiProperty({ example: '1', description: 'Version optimista del agregado.' })
+  version!: string;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 

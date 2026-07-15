@@ -1,5 +1,8 @@
 import { json, urlencoded } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import compression from 'compression';
 import helmet from 'helmet';
+import { randomUUID } from 'node:crypto';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -71,6 +74,71 @@ export async function bootstrap(): Promise<void> {
   app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   const configService = app.get(ConfigService);
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const timeout = request.path.startsWith('/api/reports/')
+      ? (configService.get<number>('REPORT_TIMEOUT_MS') ?? 30_000)
+      : (configService.get<number>('HTTP_TIMEOUT_MS') ?? 10_000);
+    response.setTimeout(timeout);
+    next();
+  });
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const suppliedRequestId = request.header('x-request-id')?.trim();
+    const requestId = suppliedRequestId?.slice(0, 128) || randomUUID();
+    response.setHeader('X-Request-Id', requestId);
+    next();
+  });
+
+  if (configService.get<boolean>('HTTP_COMPRESSION')) {
+    app.use(
+      compression({
+        threshold: 1024,
+        filter: (request, response) => {
+          if (response.getHeader('Content-Type') === 'text/event-stream') {
+            return false;
+          }
+          return compression.filter(request, response);
+        },
+      }),
+    );
+  }
+
+  if (configService.get<boolean>('AUTH_COOKIE')) {
+    const allowedOrigins = resolveCorsOrigins(
+      configService.get<string>('CORS_ORIGIN'),
+    );
+    app.use((request: Request, response: Response, next: NextFunction) => {
+      const cookieToken = request.headers.cookie?.match(
+        /(?:^|;\s*)restaurant_session=([^;]+)/,
+      )?.[1];
+      const bearerToken = request
+        .header('authorization')
+        ?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+      if (
+        cookieToken &&
+        bearerToken &&
+        decodeURIComponent(cookieToken) !== bearerToken
+      ) {
+        response
+          .status(401)
+          .json({ message: 'Conflicting authenticated sessions.' });
+        return;
+      }
+
+      if (cookieToken && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+        const origin = request.header('origin');
+        if (
+          !origin ||
+          (allowedOrigins !== true && !allowedOrigins.includes(origin))
+        ) {
+          response.status(403).json({ message: 'Invalid request origin.' });
+          return;
+        }
+      }
+      next();
+    });
+  }
+
   const nodeEnv = configService.getOrThrow<string>('NODE_ENV');
   const trustProxyHops = configService.get<number>('TRUST_PROXY_HOPS') ?? 0;
 
@@ -87,6 +155,7 @@ export async function bootstrap(): Promise<void> {
 
     app.enableCors({
       origin: resolveCorsOrigins(normalizedCorsOrigin),
+      credentials: configService.get<boolean>('AUTH_COOKIE') ?? false,
     });
   }
 

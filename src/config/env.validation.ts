@@ -21,6 +21,32 @@ export const envValidationSchema = Joi.object({
     .pattern(/^(\*|[^,\s]+(\s*,\s*[^,\s]+)*)?$/)
     .allow('')
     .optional(),
+  OBSERVABILITY_V1: Joi.boolean().truthy('true').falsy('false').default(false),
+  HTTP_COMPRESSION: Joi.boolean().truthy('true').falsy('false').default(false),
+  POS_CATALOG_V1: Joi.boolean().truthy('true').falsy('false').default(false),
+  STOCK_REPORT_PAGED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  REPORT_QUERY_V2: Joi.boolean().truthy('true').falsy('false').default(false),
+  SALE_TICKET_SUMMARY_LIST: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  OPTIMISTIC_VERSIONING: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  AUTH_COOKIE: Joi.boolean().truthy('true').falsy('false').default(false),
+  AUTH_TOKEN_RESPONSE: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(true),
+  OPERATIONS_SSE: Joi.boolean().truthy('true').falsy('false').default(false),
+  HTTP_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
+  REPORT_TIMEOUT_MS: Joi.number().integer().min(1000).default(30000),
+  CONNECTION_LIMIT: Joi.number().integer().min(1).default(10),
+  POOL_TIMEOUT_SECONDS: Joi.number().integer().min(1).default(10),
   ADMIN_EMAIL: Joi.string().email().required(),
   ADMIN_PASSWORD: Joi.string().min(8).required(),
   ADMIN_FIRST_NAME: Joi.string().min(1).required(),

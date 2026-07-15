@@ -17,6 +17,7 @@ type TableOrderRecord = {
   closedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  version?: bigint;
   restaurantTable: {
     code: string;
     name: string | null;
@@ -46,6 +47,7 @@ export function toTableOrderResponse(
     closedAt: order.closedAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    version: (order.version ?? 1n).toString(),
     saleTicket: toSaleTicketResponse(order.saleTicket),
   };
 }

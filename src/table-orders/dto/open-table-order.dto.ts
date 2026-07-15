@@ -1,8 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { ExpectedVersionDto } from '../../common/dto/expected-version.dto';
 
-export class OpenTableOrderDto {
+export class OpenTableOrderDto extends ExpectedVersionDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   salesChannelId!: string;

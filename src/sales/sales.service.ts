@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
@@ -58,6 +60,9 @@ export class SalesService {
     private readonly auditService: AuditService = {
       log: async () => undefined,
     } as unknown as AuditService,
+    private readonly configService: ConfigService = {
+      get: () => false,
+    } as unknown as ConfigService,
   ) {}
 
   async create(
@@ -125,32 +130,69 @@ export class SalesService {
         ? Number.parseInt(query.search.trim(), 10)
         : undefined;
 
+    const where = {
+      status: query.status,
+      salesChannelId: query.salesChannelId,
+      createdById: query.createdById,
+      createdAt:
+        query.from || query.to ? { gte: query.from, lte: query.to } : undefined,
+      OR: query.search
+        ? [
+            ...(numericSearch !== undefined
+              ? [{ ticketNumber: numericSearch }]
+              : []),
+            { notes: { contains: query.search, mode: 'insensitive' as const } },
+          ]
+        : undefined,
+    } satisfies Prisma.SaleTicketWhereInput;
+
+    if (
+      query.responseMode === 'summary' &&
+      this.configService.get<boolean>('SALE_TICKET_SUMMARY_LIST')
+    ) {
+      const summaries = await this.prisma.saleTicket.findMany({
+        where,
+        select: {
+          id: true,
+          ticketNumber: true,
+          salesChannelId: true,
+          status: true,
+          paymentMethod: true,
+          paymentBankId: true,
+          paymentBankNameSnapshot: true,
+          subtotal: true,
+          discountTotal: true,
+          commissionTotal: true,
+          total: true,
+          notes: true,
+          createdById: true,
+          confirmedById: true,
+          cancelledById: true,
+          voidedById: true,
+          cancellationReason: true,
+          voidReason: true,
+          createdAt: true,
+          updatedAt: true,
+          confirmedAt: true,
+          cancelledAt: true,
+          voidedAt: true,
+          version: true,
+          salesChannel: { select: { name: true } },
+          paymentBank: { select: { name: true } },
+          _count: { select: { items: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: query.limit,
+        skip: query.offset,
+      });
+      return summaries.map((ticket) => ({
+        ...toSaleTicketResponse({ ...ticket, items: [] }),
+        itemsCount: ticket._count.items,
+      })) as SaleTicketResponseDto[];
+    }
+
     const tickets = await this.prisma.saleTicket.findMany({
-      where: {
-        status: query.status,
-        salesChannelId: query.salesChannelId,
-        createdById: query.createdById,
-        createdAt:
-          query.from || query.to
-            ? {
-                gte: query.from,
-                lte: query.to,
-              }
-            : undefined,
-        OR: query.search
-          ? [
-              ...(numericSearch !== undefined
-                ? [{ ticketNumber: numericSearch }]
-                : []),
-              {
-                notes: {
-                  contains: query.search,
-                  mode: 'insensitive',
-                },
-              },
-            ]
-          : undefined,
-      },
+      where,
       include: saleTicketInclude,
       orderBy: {
         createdAt: 'desc',
@@ -175,6 +217,7 @@ export class SalesService {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const existingTicket = await this.getTicketOrThrow(ticketId, tx);
+        this.assertExpectedVersion(existingTicket, dto.expectedVersion);
         this.ensureTicketStatus(
           existingTicket.status,
           SaleTicketStatus.DRAFT,
@@ -197,6 +240,7 @@ export class SalesService {
           where: { id: ticketId },
           data: {
             notes: dto.notes,
+            version: { increment: 1 },
             paymentMethod: shouldUpdatePayment
               ? (paymentSelection?.paymentMethod ?? null)
               : undefined,
@@ -209,6 +253,8 @@ export class SalesService {
           },
           include: saleTicketInclude,
         });
+
+        await this.emitOperationEvent(tx, updatedTicket);
 
         await this.auditService.log(
           {
@@ -237,6 +283,7 @@ export class SalesService {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.ensureDraftTicket(tx, ticketId);
+        this.assertExpectedVersion(saleTicket, dto.expectedVersion);
         const { product, currentCost, currentPrice } =
           await this.findProductSalesContext(
             tx,
@@ -317,6 +364,8 @@ export class SalesService {
         await this.recalculateTicketTotals(tx, ticketId);
         const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
 
+        await this.emitOperationEvent(tx, updatedTicket);
+
         await this.auditService.log(
           {
             userId: actorUserId,
@@ -349,7 +398,8 @@ export class SalesService {
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
-        await this.ensureDraftTicket(tx, ticketId);
+        const saleTicket = await this.ensureDraftTicket(tx, ticketId);
+        this.assertExpectedVersion(saleTicket, dto.expectedVersion);
 
         const item = await tx.saleTicketItem.findFirst({
           where: {
@@ -377,6 +427,8 @@ export class SalesService {
 
         await this.recalculateTicketTotals(tx, ticketId);
         const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.emitOperationEvent(tx, updatedTicket);
 
         await this.auditService.log(
           {
@@ -437,6 +489,8 @@ export class SalesService {
         await this.recalculateTicketTotals(tx, ticketId);
         const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
 
+        await this.emitOperationEvent(tx, updatedTicket);
+
         await this.auditService.log(
           {
             userId: actorUserId,
@@ -485,6 +539,7 @@ export class SalesService {
     tx: SalesTransactionClient,
   ) {
     const existingTicket = await this.getTicketOrThrow(ticketId, tx);
+    this.assertExpectedVersion(existingTicket, dto.expectedVersion);
     this.ensureTicketStatus(
       existingTicket.status,
       SaleTicketStatus.DRAFT,
@@ -495,12 +550,15 @@ export class SalesService {
       where: { id: ticketId },
       data: {
         status: SaleTicketStatus.CANCELLED,
+        version: { increment: 1 },
         cancelledById,
         cancellationReason: dto.reason,
         cancelledAt: new Date(),
       },
       include: saleTicketInclude,
     });
+
+    await this.emitOperationEvent(tx, updatedTicket);
 
     await this.auditService.log(
       {
@@ -537,6 +595,7 @@ export class SalesService {
     tx: SalesTransactionClient,
   ) {
     const saleTicket = await this.getTicketOrThrow(ticketId, tx);
+    this.assertExpectedVersion(saleTicket, dto.expectedVersion);
     this.ensureTicketStatus(
       saleTicket.status,
       SaleTicketStatus.DRAFT,
@@ -585,6 +644,7 @@ export class SalesService {
       where: { id: ticketId },
       data: {
         status: SaleTicketStatus.CONFIRMED,
+        version: { increment: 1 },
         confirmedById,
         confirmedAt: new Date(),
         paymentMethod: paymentSelection.paymentMethod,
@@ -594,6 +654,8 @@ export class SalesService {
     });
 
     const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+    await this.emitOperationEvent(tx, updatedTicket);
 
     await this.auditService.log(
       {
@@ -626,6 +688,7 @@ export class SalesService {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
         const saleTicket = await this.getTicketOrThrow(ticketId, tx);
+        this.assertExpectedVersion(saleTicket, dto.expectedVersion);
         this.ensureTicketStatus(
           saleTicket.status,
           SaleTicketStatus.CONFIRMED,
@@ -656,6 +719,7 @@ export class SalesService {
           where: { id: ticketId },
           data: {
             status: SaleTicketStatus.VOIDED,
+            version: { increment: 1 },
             voidedById,
             voidedAt: new Date(),
             voidReason: dto.reason,
@@ -663,6 +727,8 @@ export class SalesService {
         });
 
         const updatedTicket = await this.getTicketOrThrow(ticketId, tx);
+
+        await this.emitOperationEvent(tx, updatedTicket);
 
         await this.auditService.log(
           {
@@ -887,6 +953,7 @@ export class SalesService {
       where: { id: ticketId },
       data: {
         subtotal,
+        version: { increment: 1 },
         total: subtotal,
       },
     });
@@ -1105,6 +1172,44 @@ export class SalesService {
       cancelledAt: ticket.cancelledAt ?? null,
       voidedAt: ticket.voidedAt ?? null,
     };
+  }
+
+  private assertExpectedVersion(
+    entity: { id: string; version?: bigint },
+    expectedVersion: string | undefined,
+  ): void {
+    if (!expectedVersion) {
+      if (this.configService.get<boolean>('OPTIMISTIC_VERSIONING')) {
+        throw new BadRequestException('expectedVersion is required.');
+      }
+      return;
+    }
+
+    const currentVersion = entity.version ?? 1n;
+    if (currentVersion !== BigInt(expectedVersion)) {
+      throw new ConflictException({
+        code: 'STALE_VERSION',
+        entityType: 'SaleTicket',
+        entityId: entity.id,
+        currentVersion: currentVersion.toString(),
+      });
+    }
+  }
+
+  private async emitOperationEvent(
+    tx: SalesTransactionClient,
+    ticket: { id: string; version?: bigint },
+  ): Promise<void> {
+    if (!this.configService.get<boolean>('OPERATIONS_SSE')) return;
+    const event = await tx.operationEvent.create({
+      data: {
+        type: 'sale-ticket.changed',
+        entityType: 'SaleTicket',
+        entityId: ticket.id,
+        version: ticket.version ?? 1n,
+      },
+    });
+    await tx.$executeRaw`SELECT pg_notify('operation_events', ${event.id.toString()})`;
   }
 
   private runInTransaction<T>(

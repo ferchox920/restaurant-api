@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsUUID, Min } from 'class-validator';
+import { ExpectedVersionDto } from '../../common/dto/expected-version.dto';
 
-export class AddSaleTicketItemDto {
+export class AddSaleTicketItemDto extends ExpectedVersionDto {
   @ApiProperty({
     format: 'uuid',
     example: '0f91a8fe-0e06-4f9c-8e8d-18a4f4d0a2b4',

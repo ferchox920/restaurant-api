@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../database/prisma.service';
@@ -13,6 +14,7 @@ import { SalesByUserQueryDto } from './dto/sales-by-user-query.dto';
 import { SalesByUserReportResponseDto } from './dto/sales-by-user-report-response.dto';
 import { StockReportQueryDto } from './dto/stock-report-query.dto';
 import { StockReportResponseDto } from './dto/stock-report-response.dto';
+import { StockReportPagedResponseDto } from './dto/stock-report-paged-response.dto';
 import { toInventoryMovementReportResponse } from './mappers/inventory-movement-report.mapper';
 import {
   divideDecimals,
@@ -56,13 +58,57 @@ type SalesByUserAggregateRow = {
   historicalCost: Decimal;
 };
 
+type StockPagedRow = {
+  productId: string;
+  productName: string;
+  productSku: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  unit: string;
+  stockManagementType: string;
+  active: boolean;
+  currentStock: Decimal;
+  minimumStock: Decimal;
+  stockStatus: string;
+  updatedAt: Date;
+};
+
+type StockSummaryRow = {
+  total: bigint;
+  available: bigint;
+  lowStock: bigint;
+  outOfStock: bigint;
+  notTracked: bigint;
+};
+
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService = {
+      get: () => false,
+    } as unknown as ConfigService,
+  ) {}
 
+  getStockReport(
+    query: StockReportQueryDto & { responseMode: 'paged' },
+  ): Promise<StockReportPagedResponseDto>;
+  getStockReport(
+    query: StockReportQueryDto & { responseMode?: undefined },
+  ): Promise<StockReportResponseDto[]>;
+  getStockReport(
+    query: StockReportQueryDto,
+  ): Promise<StockReportResponseDto[] | StockReportPagedResponseDto>;
   async getStockReport(
     query: StockReportQueryDto,
-  ): Promise<StockReportResponseDto[]> {
+  ): Promise<StockReportResponseDto[] | StockReportPagedResponseDto> {
+    if (query.responseMode === 'paged') {
+      if (!this.config.get<boolean>('STOCK_REPORT_PAGED')) {
+        throw new NotFoundException();
+      }
+      return this.getPagedStockReport(query);
+    }
+
     const products = await this.prisma.product.findMany({
       where: {
         active: typeof query.active === 'boolean' ? query.active : undefined,
@@ -110,6 +156,106 @@ export class ReportsService {
     }
 
     return result.filter((item) => item.stockStatus === query.stockStatus);
+  }
+
+  private async getPagedStockReport(
+    query: StockReportQueryDto,
+  ): Promise<StockReportPagedResponseDto> {
+    const limit = Math.min(query.limit ?? 50, 100);
+    const offset = query.offset ?? 0;
+    const statusExpression = Prisma.sql`
+      CASE
+        WHEN product."stockManagementType" <> 'FINISHED_PRODUCT'::"StockManagementType" THEN 'NOT_TRACKED'
+        WHEN COALESCE(stock."currentStock", 0) = 0 THEN 'OUT_OF_STOCK'
+        WHEN COALESCE(stock."currentStock", 0) <= COALESCE(stock."minimumStock", 0) THEN 'LOW_STOCK'
+        ELSE 'AVAILABLE'
+      END`;
+    const conditions: Prisma.Sql[] = [];
+
+    if (typeof query.active === 'boolean') {
+      conditions.push(Prisma.sql`product."active" = ${query.active}`);
+    }
+    if (query.categoryId) {
+      conditions.push(
+        Prisma.sql`product."categoryId" = ${query.categoryId}::uuid`,
+      );
+    }
+    if (query.stockManagementType) {
+      conditions.push(
+        Prisma.sql`product."stockManagementType" = ${query.stockManagementType}::"StockManagementType"`,
+      );
+    }
+    if (query.search?.trim()) {
+      const pattern = `%${query.search.trim()}%`;
+      conditions.push(
+        Prisma.sql`(product."name" ILIKE ${pattern} OR product."sku" ILIKE ${pattern})`,
+      );
+    }
+    if (query.stockStatus) {
+      conditions.push(Prisma.sql`${statusExpression} = ${query.stockStatus}`);
+    }
+
+    const where = conditions.length
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+      : Prisma.empty;
+    const from = Prisma.sql`
+      FROM "Product" product
+      LEFT JOIN "Category" category ON category."id" = product."categoryId"
+      LEFT JOIN "ProductStock" stock ON stock."productId" = product."id"
+      ${where}`;
+
+    const [rows, summaries] = await Promise.all([
+      this.prisma.$queryRaw<StockPagedRow[]>(Prisma.sql`
+        SELECT
+          product."id" AS "productId",
+          product."name" AS "productName",
+          product."sku" AS "productSku",
+          product."categoryId",
+          category."name" AS "categoryName",
+          product."unit"::text AS "unit",
+          product."stockManagementType"::text AS "stockManagementType",
+          product."active",
+          COALESCE(stock."currentStock", 0) AS "currentStock",
+          COALESCE(stock."minimumStock", 0) AS "minimumStock",
+          ${statusExpression} AS "stockStatus",
+          COALESCE(stock."updatedAt", product."updatedAt") AS "updatedAt"
+        ${from}
+        ORDER BY product."name" ASC, product."id" ASC
+        LIMIT ${limit} OFFSET ${offset}`),
+      this.prisma.$queryRaw<StockSummaryRow[]>(Prisma.sql`
+        SELECT
+          COUNT(*)::bigint AS "total",
+          COUNT(*) FILTER (WHERE ${statusExpression} = 'AVAILABLE')::bigint AS "available",
+          COUNT(*) FILTER (WHERE ${statusExpression} = 'LOW_STOCK')::bigint AS "lowStock",
+          COUNT(*) FILTER (WHERE ${statusExpression} = 'OUT_OF_STOCK')::bigint AS "outOfStock",
+          COUNT(*) FILTER (WHERE ${statusExpression} = 'NOT_TRACKED')::bigint AS "notTracked"
+        ${from}`),
+    ]);
+    const summary = summaries[0] ?? {
+      total: 0n,
+      available: 0n,
+      lowStock: 0n,
+      outOfStock: 0n,
+      notTracked: 0n,
+    };
+
+    return {
+      items: rows.map((row) => ({
+        ...row,
+        stockManagementType: row.stockManagementType,
+        currentStock: row.currentStock.toString(),
+        minimumStock: row.minimumStock.toString(),
+      })),
+      summary: {
+        available: Number(summary.available),
+        lowStock: Number(summary.lowStock),
+        outOfStock: Number(summary.outOfStock),
+        notTracked: Number(summary.notTracked),
+      },
+      total: Number(summary.total),
+      limit,
+      offset,
+    };
   }
 
   async getSalesByChannelReport(

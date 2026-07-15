@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   Post,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -22,11 +24,16 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthenticatedUser } from './types/authenticated-user.type';
 import { UserResponseDto } from '../users/dto/user-response.dto';
+import type { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -46,8 +53,43 @@ export class AuthController {
     description: 'Credenciales invalidas o usuario inactivo.',
   })
   @HttpCode(200)
-  login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthResponseDto> {
+    const result = await this.authService.login(
+      loginDto,
+      request.header('user-agent'),
+    );
+    if (result.sessionToken) {
+      response.cookie('restaurant_session', result.sessionToken, {
+        httpOnly: true,
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    }
+    return {
+      ...(result.accessToken ? { accessToken: result.accessToken } : {}),
+      user: result.user,
+    };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(204)
+  async logout(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.authService.revokeSession(user.sessionJti);
+    response.clearCookie('restaurant_session', {
+      httpOnly: true,
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
   }
 
   @Get('me')
@@ -65,7 +107,7 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Token invalido, ausente o usuario inactivo/no existente.',
   })
-  me(@CurrentUser() user: AuthenticatedUser): Promise<UserResponseDto> {
-    return this.authService.getMe(user.id);
+  me(@CurrentUser() user: AuthenticatedUser): UserResponseDto {
+    return user;
   }
 }

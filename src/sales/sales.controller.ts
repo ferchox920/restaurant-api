@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -37,13 +38,19 @@ import { UpdateSaleTicketItemDto } from './dto/update-sale-ticket-item.dto';
 import { UpdateSaleTicketDto } from './dto/update-sale-ticket.dto';
 import { VoidSaleTicketDto } from './dto/void-sale-ticket.dto';
 import { SalesService } from './sales.service';
+import { IdempotencyService } from '../idempotency/idempotency.service';
 
 @ApiTags('sale-tickets')
 @ApiBearerAuth('bearer')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sales/tickets')
 export class SalesController {
-  constructor(private readonly salesService: SalesService) {}
+  constructor(
+    private readonly salesService: SalesService,
+    private readonly idempotency: IdempotencyService = {
+      execute: ({ run }: { run: () => Promise<unknown> }) => run(),
+    } as unknown as IdempotencyService,
+  ) {}
 
   @Post()
   @Roles('ADMIN', 'MANAGER', 'CASHIER')
@@ -300,8 +307,15 @@ export class SalesController {
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Body() dto: ConfirmSaleTicketDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.confirm(ticketId, dto, user.id);
+    return this.idempotency.execute({
+      key: idempotencyKey,
+      userId: user.id,
+      operation: `sale-ticket.confirm:${ticketId}`,
+      body: dto,
+      run: () => this.salesService.confirm(ticketId, dto, user.id),
+    });
   }
 
   @Post(':ticketId/void')
@@ -330,7 +344,14 @@ export class SalesController {
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Body() dto: VoidSaleTicketDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.void(ticketId, dto, user.id);
+    return this.idempotency.execute({
+      key: idempotencyKey,
+      userId: user.id,
+      operation: `sale-ticket.void:${ticketId}`,
+      body: dto,
+      run: () => this.salesService.void(ticketId, dto, user.id),
+    });
   }
 }

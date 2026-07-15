@@ -3,9 +3,13 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  Min,
 } from 'class-validator';
 import {
   StockManagementType,
@@ -17,6 +21,29 @@ import {
 } from '../reports.enums';
 
 export class StockReportQueryDto {
+  @ApiPropertyOptional({
+    enum: ['paged'],
+    description: 'Omita para usar el contrato legacy.',
+  })
+  @IsOptional()
+  @IsIn(['paged'])
+  responseMode?: 'paged';
+
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 50;
+
+  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number = 0;
+
   @ApiPropertyOptional({
     type: Boolean,
     description:

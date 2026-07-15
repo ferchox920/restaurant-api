@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuditAction, AuditEntityType, Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuditService } from '../audit/audit.service';
@@ -58,6 +60,9 @@ export class TableOrdersService {
     private readonly auditService: AuditService = {
       log: async () => undefined,
     } as unknown as AuditService,
+    private readonly configService: ConfigService = {
+      get: () => false,
+    } as unknown as ConfigService,
   ) {}
 
   async open(
@@ -89,6 +94,8 @@ export class TableOrdersService {
           },
           include: tableOrderInclude,
         });
+
+        await this.emitOperationEvent(tx, createdOrder);
 
         await this.auditService.log(
           {
@@ -171,11 +178,21 @@ export class TableOrdersService {
     const order = await this.runInTransaction(
       async (tx: TableOrdersTransactionClient) => {
         const existingOrder = await this.getOrderOrThrow(id, tx);
+        this.assertExpectedVersion(existingOrder, dto.expectedVersion);
         this.ensureOrderStatus(existingOrder.status, TableOrderStatus.OPEN);
 
         await this.salesService.cancelDraftInTransaction(
           existingOrder.saleTicketId,
-          { reason: dto.reason },
+          {
+            reason: dto.reason,
+            ...(dto.expectedVersion
+              ? {
+                  expectedVersion: (
+                    existingOrder.saleTicket.version ?? 1n
+                  ).toString(),
+                }
+              : {}),
+          },
           cancelledById,
           tx,
         );
@@ -184,12 +201,18 @@ export class TableOrdersService {
           where: { id },
           data: {
             status: TableOrderStatus.CANCELLED,
+            ...(dto.expectedVersion ||
+            this.configService.get<boolean>('OPTIMISTIC_VERSIONING')
+              ? { version: { increment: 1 } }
+              : {}),
             cancelledById,
             cancelledAt: new Date(),
             cancelReason: dto.reason,
           },
           include: tableOrderInclude,
         });
+
+        await this.emitOperationEvent(tx, updatedOrder);
 
         await this.auditService.log(
           {
@@ -220,7 +243,21 @@ export class TableOrdersService {
     actorUserId: string,
   ): Promise<TableOrderResponseDto> {
     const order = await this.getOpenOrderOrThrow(id);
-    await this.salesService.addItem(order.saleTicketId, dto, actorUserId);
+    this.assertExpectedVersion(order, dto.expectedVersion);
+    await this.salesService.addItem(
+      order.saleTicketId,
+      {
+        ...dto,
+        ...(dto.expectedVersion
+          ? { expectedVersion: (order.saleTicket.version ?? 1n).toString() }
+          : {}),
+      },
+      actorUserId,
+    );
+    await this.prisma.tableOrder.update({
+      where: { id },
+      data: { version: { increment: 1 } },
+    });
 
     return this.findOne(id);
   }
@@ -232,12 +269,22 @@ export class TableOrdersService {
     actorUserId: string,
   ): Promise<TableOrderResponseDto> {
     const order = await this.getOpenOrderOrThrow(id);
+    this.assertExpectedVersion(order, dto.expectedVersion);
     await this.salesService.updateItem(
       order.saleTicketId,
       itemId,
-      dto,
+      {
+        ...dto,
+        ...(dto.expectedVersion
+          ? { expectedVersion: (order.saleTicket.version ?? 1n).toString() }
+          : {}),
+      },
       actorUserId,
     );
+    await this.prisma.tableOrder.update({
+      where: { id },
+      data: { version: { increment: 1 } },
+    });
 
     return this.findOne(id);
   }
@@ -261,11 +308,21 @@ export class TableOrdersService {
     const order = await this.runInTransaction(
       async (tx: TableOrdersTransactionClient) => {
         const existingOrder = await this.getOrderOrThrow(id, tx);
+        this.assertExpectedVersion(existingOrder, dto.expectedVersion);
         this.ensureOrderStatus(existingOrder.status, TableOrderStatus.OPEN);
 
         await this.salesService.confirmDraftInTransaction(
           existingOrder.saleTicketId,
-          dto,
+          {
+            ...dto,
+            ...(dto.expectedVersion
+              ? {
+                  expectedVersion: (
+                    existingOrder.saleTicket.version ?? 1n
+                  ).toString(),
+                }
+              : {}),
+          },
           closedById,
           tx,
         );
@@ -274,11 +331,17 @@ export class TableOrdersService {
           where: { id },
           data: {
             status: TableOrderStatus.CLOSED,
+            ...(dto.expectedVersion ||
+            this.configService.get<boolean>('OPTIMISTIC_VERSIONING')
+              ? { version: { increment: 1 } }
+              : {}),
             closedById,
             closedAt: new Date(),
           },
           include: tableOrderInclude,
         });
+
+        await this.emitOperationEvent(tx, updatedOrder);
 
         await this.auditService.log(
           {
@@ -397,6 +460,52 @@ export class TableOrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
+  }
+
+  private assertExpectedVersion(
+    order: { id: string; version?: bigint },
+    expectedVersion: string | undefined,
+  ): void {
+    if (!expectedVersion) {
+      if (this.configService.get<boolean>('OPTIMISTIC_VERSIONING')) {
+        throw new BadRequestException('expectedVersion is required.');
+      }
+      return;
+    }
+    const currentVersion = order.version ?? 1n;
+    if (currentVersion !== BigInt(expectedVersion)) {
+      throw new ConflictException({
+        code: 'STALE_VERSION',
+        entityType: 'TableOrder',
+        entityId: order.id,
+        currentVersion: currentVersion.toString(),
+      });
+    }
+  }
+
+  private async emitOperationEvent(
+    tx: TableOrdersTransactionClient,
+    order: {
+      id: string;
+      version?: bigint;
+      restaurantTableId: string;
+      saleTicketId: string;
+    },
+  ): Promise<void> {
+    if (!this.configService.get<boolean>('OPERATIONS_SSE')) return;
+    const event = await tx.operationEvent.create({
+      data: {
+        type: 'table-order.changed',
+        entityType: 'TableOrder',
+        entityId: order.id,
+        version: order.version ?? 1n,
+        related: {
+          restaurantTableId: order.restaurantTableId,
+          saleTicketId: order.saleTicketId,
+        },
+      },
+    });
+    await tx.$executeRaw`SELECT pg_notify('operation_events', ${event.id.toString()})`;
   }
 
   private runInTransaction<T>(
