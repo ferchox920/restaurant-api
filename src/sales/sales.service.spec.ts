@@ -645,6 +645,85 @@ describe('SalesService', () => {
     expect(result.paymentBankName).toBe('Banco Galicia');
   });
 
+  it('confirms Mercado Pago sales without assigning a transfer bank', async () => {
+    const tx = makeDraftTx({
+      salesChannel: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'channel-1',
+          active: true,
+        }),
+      },
+      saleTicket: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(makeTicketRecord({}, [makeSaleItem()]))
+          .mockResolvedValueOnce(
+            makeTicketRecord(
+              {
+                status: 'CONFIRMED',
+                paymentMethod: 'MERCADO_PAGO',
+                paymentBankId: null,
+                paymentBankNameSnapshot: null,
+                confirmedById: 'cashier-1',
+                confirmedAt: new Date('2026-06-09T03:06:00.000Z'),
+              },
+              [makeSaleItem()],
+            ),
+          ),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    });
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    const result = await service.confirm(
+      'ticket-1',
+      { paymentMethod: 'MERCADO_PAGO' },
+      'cashier-1',
+    );
+
+    expect(tx.saleTicket.update).toHaveBeenCalledWith({
+      where: { id: 'ticket-1' },
+      data: expect.objectContaining({
+        paymentMethod: 'MERCADO_PAGO',
+        paymentBankId: null,
+        paymentBankNameSnapshot: null,
+      }),
+    });
+    expect(tx.paymentBank.findUnique).not.toHaveBeenCalled();
+    expect(result.paymentMethod).toBe('MERCADO_PAGO');
+  });
+
+  it('rejects a transfer bank on Mercado Pago confirmation', async () => {
+    const tx = makeDraftTx({
+      salesChannel: {
+        findUnique: jest.fn().mockResolvedValueOnce({
+          id: 'channel-1',
+          active: true,
+        }),
+      },
+      saleTicket: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(makeTicketRecord({}, [makeSaleItem()])),
+        update: jest.fn(),
+      },
+    });
+    prismaService.$transaction.mockImplementationOnce(async (callback) =>
+      callback(tx),
+    );
+
+    await expect(
+      service.confirm(
+        'ticket-1',
+        { paymentMethod: 'MERCADO_PAGO', paymentBankId: 'bank-1' },
+        'cashier-1',
+      ),
+    ).rejects.toThrow('cannot include a paymentBankId');
+    expect(tx.saleTicket.update).not.toHaveBeenCalled();
+  });
+
   it('rejects confirmation when a draft ticket has no items', async () => {
     const tx = makeDraftTx({
       saleTicket: {

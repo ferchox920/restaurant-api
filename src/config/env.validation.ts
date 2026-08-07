@@ -44,6 +44,32 @@ export const envValidationSchema = Joi.object({
     .default(true),
   OPERATIONS_SSE: Joi.boolean().truthy('true').falsy('false').default(false),
   HTTP_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
+  MERCADO_PAGO_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  MERCADO_PAGO_ACCESS_TOKEN: Joi.string()
+    .trim()
+    .when('MERCADO_PAGO_ENABLED', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional().allow(''),
+    }),
+  MERCADO_PAGO_WEBHOOK_SECRET: Joi.string().trim().optional().allow(''),
+  MERCADO_PAGO_WEBHOOK_TOLERANCE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(3600)
+    .default(300),
+  MERCADO_PAGO_CURRENCY: Joi.string()
+    .trim()
+    .uppercase()
+    .length(3)
+    .default('ARS'),
+  MERCADO_PAGO_STATEMENT_DESCRIPTOR: Joi.string()
+    .trim()
+    .max(22)
+    .default('RESTAURANTE'),
   REPORT_TIMEOUT_MS: Joi.number().integer().min(1000).default(30000),
   CONNECTION_LIMIT: Joi.number().integer().min(1).default(10),
   POOL_TIMEOUT_SECONDS: Joi.number().integer().min(1).default(10),

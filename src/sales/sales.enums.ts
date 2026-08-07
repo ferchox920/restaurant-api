@@ -11,6 +11,7 @@ export type SaleTicketStatus =
 export const SalePaymentMethod = {
   CASH: 'CASH',
   TRANSFER: 'TRANSFER',
+  MERCADO_PAGO: 'MERCADO_PAGO',
 } as const;
 
 export type SalePaymentMethod =

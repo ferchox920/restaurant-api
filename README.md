@@ -22,6 +22,7 @@ La API permite:
 - anular ventas confirmadas y revertir stock;
 - consultar auditoria general;
 - consultar reportes operativos basicos.
+- cobrar tickets con Mercado Pago Checkout API Orders y reconciliar su estado.
 
 ## Modulos implementados
 
@@ -37,13 +38,13 @@ La API permite:
 - `audit`
 - `reports`
 - `health`
+- `mercado-pago`
 
 ## Fuera del MVP
 
 Este MVP no incluye:
 
 - frontend;
-- pagos;
 - caja;
 - facturacion fiscal;
 - reembolsos;
@@ -106,6 +107,15 @@ Variables opcionales para usuarios demo adicionales:
 - `CASHIER_PASSWORD`
 - `AUDITOR_EMAIL`
 - `AUDITOR_PASSWORD`
+
+Variables de Mercado Pago:
+
+- `MERCADO_PAGO_ENABLED`
+- `MERCADO_PAGO_ACCESS_TOKEN`
+- `MERCADO_PAGO_WEBHOOK_SECRET`
+- `MERCADO_PAGO_WEBHOOK_TOLERANCE_SECONDS`
+- `MERCADO_PAGO_CURRENCY`
+- `MERCADO_PAGO_STATEMENT_DESCRIPTOR`
 
 Notas de configuracion:
 
@@ -325,6 +335,22 @@ Los listados operativos y los historiales aceptan `limit` y `offset`. El valor p
 - `POST /api/sales/tickets/:ticketId/confirm`
 - `POST /api/sales/tickets/:ticketId/void`
 
+### Mercado Pago
+
+- `GET /api/integrations/mercado-pago/tickets/:ticketId/order-preview`
+- `POST /api/integrations/mercado-pago/tickets/:ticketId/orders`
+- `GET /api/integrations/mercado-pago/tickets/:ticketId/orders`
+- `GET /api/integrations/mercado-pago/orders/:id`
+- `POST /api/integrations/mercado-pago/orders/:id/refresh`
+- `POST /api/integrations/mercado-pago/webhooks/orders`
+- `POST /api/integrations/mercado-pago/payments/sync`
+- `GET /api/integrations/mercado-pago/payments`
+
+La creacion de una Order exige `Idempotency-Key`. El body recibe el CardToken
+generado por MercadoPago.js, pero el total y los items siempre se derivan del
+ticket `DRAFT`. El webhook valida `x-signature` antes de consultar y reconciliar
+la Order. Ver [Integracion Mercado Pago](docs/24-mercado-pago-integration.md).
+
 ### Audit
 
 - `GET /api/audit-logs`
@@ -381,10 +407,16 @@ Politica de uso del seed:
 9. Consultar reportes operativos.
 10. Anular una venta confirmada y verificar `VOID_REVERSAL`.
 
+Para el flujo de Mercado Pago, el frontend genera un CardToken de prueba y crea
+la Order para el ticket. Si queda acreditada, la API confirma el ticket con
+medio de pago `MERCADO_PAGO` y descuenta stock.
+
 ## Estado de build y tests
 
 - `npm run build`: pasando
 - `npm run test`: pasando
+- `npm run test:mercado-pago`: suite focalizada con cobertura minima obligatoria
+  de 90% en sentencias/lineas, 75% en ramas y 95% en funciones.
 - cobertura smoke agregada para:
   - `GET /api`
   - `GET /health`
@@ -436,3 +468,4 @@ npm run prisma:seed
 - [Deploy en Railway](docs/21-railway-deploy-guide.md)
 - [Checklist operativo post-deploy](docs/22-post-deploy-checklist.md)
 - [Notas de entorno demo](docs/23-demo-environment-notes.md)
+- [Integracion Mercado Pago](docs/24-mercado-pago-integration.md)

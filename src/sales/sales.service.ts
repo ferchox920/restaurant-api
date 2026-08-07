@@ -1015,6 +1015,20 @@ export class SalesService {
       };
     }
 
+    if (input.paymentMethod === SalePaymentMethod.MERCADO_PAGO) {
+      if (input.paymentBankId) {
+        throw new ConflictException(
+          'MERCADO_PAGO payments cannot include a paymentBankId.',
+        );
+      }
+
+      return {
+        paymentMethod: SalePaymentMethod.MERCADO_PAGO,
+        paymentBankId: null,
+        paymentBankNameSnapshot: null,
+      };
+    }
+
     if (!input.paymentBankId) {
       throw new ConflictException(
         'TRANSFER payments require a valid paymentBankId.',

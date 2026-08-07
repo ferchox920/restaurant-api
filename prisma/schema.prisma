@@ -64,6 +64,7 @@ enum RestaurantTableOrderStatus {
 enum SalePaymentMethod {
   CASH
   TRANSFER
+  MERCADO_PAGO
 }
 
 enum AuditAction {
@@ -215,6 +216,66 @@ model PaymentBank {
   saleTickets SaleTicket[]
 }
 
+model MercadoPagoPayment {
+  id                        String    @id @default(uuid()) @db.Uuid
+  externalPaymentId         String    @unique
+  transactionAmount         Decimal   @db.Decimal(14, 2)
+  netReceivedAmount         Decimal?  @db.Decimal(14, 2)
+  transactionAmountRefunded Decimal?  @db.Decimal(14, 2)
+  currencyId                String
+  status                    String
+  statusDetail              String?
+  paymentMethodId           String?
+  paymentTypeId             String?
+  installments              Int?
+  externalReference         String?
+  description               String?
+  liveMode                  Boolean
+  dateCreated               DateTime
+  dateApproved              DateTime?
+  dateLastUpdated           DateTime
+  syncedAt                  DateTime  @default(now())
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  @@index([status])
+  @@index([dateCreated])
+  @@index([status, dateCreated])
+}
+
+model MercadoPagoOrder {
+  id                  String     @id @default(uuid()) @db.Uuid
+  saleTicketId        String     @db.Uuid
+  externalOrderId     String     @unique
+  idempotencyKey      String     @unique
+  status              String
+  statusDetail        String?
+  totalAmount         Decimal    @db.Decimal(14, 2)
+  totalPaidAmount     Decimal?   @db.Decimal(14, 2)
+  currencyId          String
+  paymentId           String?
+  paymentStatus       String?
+  paymentStatusDetail String?
+  paymentMethodId     String?
+  paymentTypeId       String?
+  installments        Int?
+  checkoutUrl         String?
+  createdById         String?    @db.Uuid
+  externalCreatedAt   DateTime?
+  externalUpdatedAt   DateTime?
+  syncedAt            DateTime   @default(now())
+  reconciledAt        DateTime?
+  reconciliationError String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  saleTicket          SaleTicket @relation(fields: [saleTicketId], references: [id], onDelete: Restrict)
+
+  @@index([saleTicketId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([externalUpdatedAt])
+}
+
 model Product {
   id                  String                @id @default(uuid()) @db.Uuid
   name                String
@@ -327,6 +388,7 @@ model SaleTicket {
   paymentBank             PaymentBank?       @relation(fields: [paymentBankId], references: [id])
   items                   SaleTicketItem[]
   tableOrder              TableOrder?
+  mercadoPagoOrders       MercadoPagoOrder[]
 
   @@index([salesChannelId])
   @@index([paymentBankId])

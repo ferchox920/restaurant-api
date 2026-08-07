@@ -24,6 +24,7 @@ import { OptionsModule } from './options/options.module';
 import { OperationsModule } from './operations/operations.module';
 import { PerformanceMetricsController } from './common/observability/performance-metrics.controller';
 import { PerformanceMetricsService } from './common/observability/performance-metrics.service';
+import { MercadoPagoModule } from './mercado-pago/mercado-pago.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PerformanceMetricsService } from './common/observability/performance-me
     ReportsModule,
     OptionsModule,
     OperationsModule,
+    MercadoPagoModule,
   ],
   controllers: [AppController, PerformanceMetricsController],
   providers: [

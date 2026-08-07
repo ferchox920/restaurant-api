@@ -20,6 +20,28 @@ describe('envValidationSchema', () => {
     expect(error).toBeUndefined();
     expect(value.PORT).toBe(3000);
     expect(value.CORS_ENABLED).toBe(false);
+    expect(value.MERCADO_PAGO_ENABLED).toBe(false);
+  });
+
+  it('requires a Mercado Pago access token when the integration is enabled', () => {
+    const { error } = envValidationSchema.validate({
+      ...baseEnv,
+      MERCADO_PAGO_ENABLED: 'true',
+      MERCADO_PAGO_ACCESS_TOKEN: '',
+    });
+
+    expect(error).toBeDefined();
+  });
+
+  it('accepts a Mercado Pago access token when the integration is enabled', () => {
+    const { error, value } = envValidationSchema.validate({
+      ...baseEnv,
+      MERCADO_PAGO_ENABLED: 'true',
+      MERCADO_PAGO_ACCESS_TOKEN: 'APP_USR-test-token',
+    });
+
+    expect(error).toBeUndefined();
+    expect(value.MERCADO_PAGO_ENABLED).toBe(true);
   });
 
   it('defaults PORT to 3000 when it is missing', () => {
