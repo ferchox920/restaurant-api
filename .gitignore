@@ -2,7 +2,7 @@ node_modules
 dist
 coverage
 .env
-evidence/
+/evidence/
 *.log
 npm-debug.log*
 yarn-debug.log*

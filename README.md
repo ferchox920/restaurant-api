@@ -2,6 +2,58 @@
 
 API administrativa para gestion operativa de restaurantes construida con `NestJS`, `TypeScript`, `PostgreSQL` y `Prisma`.
 
+## Preparación del backend para portafolio
+
+Runtime reproducible: Node **24.19.0**, npm **11.6.2** y PostgreSQL **17.9**.
+Instalar con `npm ci`; el lockfile resuelve Prisma y Prisma Client **6.19.3**.
+
+Controles locales y CI usan los mismos comandos:
+
+```sh
+npm ci
+npm run verify:static
+npm run verify:unit
+```
+
+`verify:static` genera Prisma Client, comprueba lint y formato sin escribir,
+comprueba TypeScript y construye la aplicación. `lint:fix` y `format` quedan
+disponibles para correcciones locales. Los tests usan configuración ficticia propia.
+
+Para aceptación, concurrencia, migraciones y seed, crear un PostgreSQL descartable
+sin volúmenes privados; mantener bases comerciales y de seed independientes:
+
+```sh
+docker run -d --name restaurant-foundation-local -p 127.0.0.1:55473:5432 \
+  -e POSTGRES_USER=foundation -e POSTGRES_PASSWORD=foundation_disposable \
+  -e POSTGRES_DB=foundation_commercial postgres:17.9
+docker exec restaurant-foundation-local createdb -U foundation foundation_seed
+export FOUNDATION_DATABASE_TESTS=true
+export DATABASE_URL=postgresql://foundation:foundation_disposable@127.0.0.1:55473/foundation_commercial
+npm run verify:database
+export DATABASE_URL=postgresql://foundation:foundation_disposable@127.0.0.1:55473/foundation_seed
+npm run verify:seed
+docker rm -f restaurant-foundation-local
+```
+
+En PowerShell usar `$env:FOUNDATION_DATABASE_TESTS='true'` y
+`$env:DATABASE_URL='postgresql://…'`. Esperar `pg_isready` antes de ejecutar las
+verificaciones. El seed exige una base vacía; para repetir toda su verificación
+crear otra base `foundation_seed_<nombre>`. El runner rechaza nombres ajenos a
+`foundation_commercial[_<nombre>]` y `foundation_seed[_<nombre>]`.
+
+CI ejecuta controles/unitarias y dos jobs PostgreSQL independientes. Conserva
+logs y reportes JSON en artifacts durante 14 días, también ante fallos. Incluye
+CodeQL para JavaScript/TypeScript y Dependabot semanal para npm y Actions.
+
+Ventas, movimientos, auditoría, eventos habilitados y respuestas idempotentes
+se confirman juntos. Los consumos y versiones de comanda/ticket se actualizan
+en una transacción serializable. Para eliminar consumos puede enviarse
+`?expectedVersion=<string>`; pasa a ser obligatorio cuando se activa
+`OPTIMISTIC_VERSIONING`. Las funciones opcionales conservan sus defaults.
+
+Evidencia, fallos iniciales, política de retención de claves y contrato vigente:
+[backend-foundation](docs/verification/backend-foundation.md).
+
 ## Estado actual del MVP
 
 La API permite:
