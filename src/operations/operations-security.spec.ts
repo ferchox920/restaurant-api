@@ -54,6 +54,86 @@ const wire = (r: ReturnType<typeof setup>['response']) =>
 afterEach(() => jest.useRealTimers());
 
 describe('SSE security and lifecycle regressions', () => {
+  it('rechecks a joined stale authentication snapshot while replay is blocked, within 3 seconds of revocation', async () => {
+    jest.useFakeTimers();
+    const s = setup();
+    let release!: (record: typeof s.record) => void;
+    try {
+      await s.connect();
+      const oldSnapshot = { ...s.record, user: { ...s.record.user } };
+      s.prisma.authSession.findUnique
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              release = resolve;
+            }),
+        )
+        .mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              setTimeout(() => resolve(s.record), 999);
+            }),
+        );
+      s.prisma.operationEvent.findMany.mockImplementationOnce(
+        () => new Promise(() => undefined),
+      );
+      await jest.advanceTimersByTimeAsync(1001);
+      (
+        s.service as unknown as { wakeSubscribers: Set<() => void> }
+      ).wakeSubscribers.forEach((wake) => wake());
+      await jest.advanceTimersByTimeAsync(1);
+      s.record.revokedAt = new Date();
+      await jest.advanceTimersByTimeAsync(998);
+      release(oldSnapshot);
+      await jest.advanceTimersByTimeAsync(2002);
+      expect(s.response.end).toHaveBeenCalled();
+    } finally {
+      s.response.emit('close');
+      jest.clearAllTimers();
+    }
+  });
+  it('cancels pending replay deadline timers immediately on disconnect', async () => {
+    jest.useFakeTimers();
+    const s = setup();
+    let started!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    try {
+      await s.connect();
+      s.prisma.operationEvent.findMany.mockImplementationOnce(() => {
+        started();
+        return new Promise(() => undefined);
+      });
+      (
+        s.service as unknown as { wakeSubscribers: Set<() => void> }
+      ).wakeSubscribers.forEach((wake) => wake());
+      await reading;
+      s.response.emit('close');
+      await jest.advanceTimersByTimeAsync(0);
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      s.response.emit('close');
+      jest.clearAllTimers();
+    }
+  });
+  it('cancels the initial authentication deadline when the client disconnects before its query returns', async () => {
+    jest.useFakeTimers();
+    const s = setup();
+    s.prisma.authSession.findUnique.mockImplementationOnce(
+      () => new Promise(() => undefined),
+    );
+    const connecting = s.connect();
+    try {
+      s.response.emit('close');
+      await jest.advanceTimersByTimeAsync(0);
+      expect(jest.getTimerCount()).toBe(0);
+      await connecting;
+    } finally {
+      s.response.emit('close');
+      jest.clearAllTimers();
+    }
+  });
   it('does not allocate a stream if the socket closes during initial authentication', async () => {
     const s = setup();
     let release!: (record: typeof s.record) => void;

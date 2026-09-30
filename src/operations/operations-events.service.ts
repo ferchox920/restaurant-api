@@ -27,12 +27,20 @@ const eventTypes: Record<string, string> = {
 async function bounded<T>(
   operation: Promise<T>,
   milliseconds: number,
+  signal?: AbortSignal,
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
   try {
     return await Promise.race([
       operation,
       new Promise<never>((_, reject) => {
+        abort = () => reject(new Error('SSE connection closed'));
+        if (signal?.aborted) {
+          abort();
+          return;
+        }
+        signal?.addEventListener('abort', abort, { once: true });
         timer = setTimeout(
           () => reject(new Error('SSE database deadline')),
           milliseconds,
@@ -41,6 +49,7 @@ async function bounded<T>(
     ]);
   } finally {
     clearTimeout(timer);
+    if (abort) signal?.removeEventListener('abort', abort);
   }
 }
 
@@ -97,6 +106,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
         'SSE requires a persisted cookie session.',
       );
     const hash = createHash('sha256').update(user.sessionJti).digest('hex');
+    const cancellation = new AbortController();
     let checking: Promise<boolean> | undefined;
     const validSession = (): Promise<boolean> => {
       if (checking) return checking;
@@ -111,6 +121,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
           },
         }),
         SSE_SESSION_DEADLINE_MS,
+        cancellation.signal,
       )
         .then((session) =>
           Boolean(
@@ -131,12 +142,17 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
     let disconnected = response.destroyed || response.writableEnded;
     const initialDisconnect = () => {
       disconnected = true;
+      cancellation.abort();
     };
     response.once('close', initialDisconnect);
     response.once('error', initialDisconnect);
     try {
+      if (disconnected) return;
       if (!(await validSession()))
         throw new UnauthorizedException('Invalid session.');
+    } catch (error) {
+      if (disconnected) return;
+      throw error;
     } finally {
       response.removeListener('close', initialDisconnect);
       response.removeListener('error', initialDisconnect);
@@ -157,6 +173,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
     const close = () => {
       if (closed) return;
       closed = true;
+      cancellation.abort();
       clearInterval(poll);
       clearInterval(monitor);
       clearInterval(heartbeat);
@@ -199,6 +216,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
           select: { id: true },
         }),
         5000,
+        cancellation.signal,
       );
       if (closed) return;
       cursor = latest?.id ?? 0n;
@@ -257,6 +275,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
               take: 1001,
             }),
             5000,
+            cancellation.signal,
           );
           if (closed) return;
           if (events.length > 1000) await resync('replay_limit');
@@ -285,11 +304,16 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
       response.setTimeout?.(0);
       response.flushHeaders();
       monitor = setInterval(() => {
-        void validSession()
-          .then((valid) => {
-            if (!valid) invalidate();
-          })
-          .catch(close);
+        void (async () => {
+          // A joined query can reflect a snapshot taken before this tick.
+          // If it is still valid, perform a fresh check after it completes.
+          const joined = checking;
+          if (joined && !(await joined)) {
+            invalidate();
+            return;
+          }
+          if (!closed && !(await validSession())) invalidate();
+        })().catch(close);
       }, SSE_SESSION_CHECK_MS);
       expiry = setTimeout(
         () => {
@@ -307,6 +331,7 @@ export class OperationsEventsService implements OnModuleInit, OnModuleDestroy {
             select: { createdAt: true },
           }),
           5000,
+          cancellation.signal,
         );
         if (
           !saved ||

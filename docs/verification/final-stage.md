@@ -24,6 +24,8 @@ Antes del cierre por invalidez se emite `session.invalid`; frontend debe detener
 
 Replay máximo 1000 eventos y ventana de 24 horas. Un replay mayor emite `resync.required` (`replay_limit`) con checkpoint actual. Cursor desconocido o anterior a retención produce la misma señal (`cursor_unknown`/`cursor_expired`). El cliente debe invalidar/refetch sus lecturas autorizadas; no repetir mutaciones. Cursor y versiones permanecen strings y bigint, sin conversión a Number.
 
+La revisión adicional con consultas suspendidas reprodujo dos timers de deadline conservados tras desconexión y una lectura de autenticación antigua compartida que podía demorar la revocación durante un replay bloqueado. Se corrigen con cancelación de las esperas al cerrar y una comprobación fresca después de una consulta compartida válida. Las tres pruebas de regresión fallaron antes y pasan después, conservando el límite de 3000 ms. Cancelar la espera limpia los timers propios; una consulta SQL ya iniciada puede terminar posteriormente y su resultado se ignora sin enviar eventos.
+
 ## Idempotencia y límites legacy
 
 La reserva de clave, operación comercial, movimientos, auditoría, eventos y persistencia de respuesta usan la **misma transacción**. Un fallo antes de completar la respuesta revierte la operación y la reserva. Las pruebas PostgreSQL conservadas verifican fallo, concurrencia y respuesta perdida, además de las pruebas nuevas SSE.
@@ -45,7 +47,7 @@ Configuración recomendada: cookie persistida con AUTH_COOKIE=true, AUTH_TOKEN_R
 
 ## Verificación y alcance
 
-Los conteos anteriores (304 unitarias, 32 aceptación/concurrencia, 1 seed) son antecedentes. Esta etapa añade 17 unitarias SSE y 7 escenarios HTTP reales. Se conservaron fallos iniciales: ocho reproducciones SSE, desconexión durante autenticación y un error local de secuencia al correr unitarias sin regenerar Prisma tras npm ci. Ese último fallo se corrigió ejecutando la generación requerida; no se cambiaron ni omitieron pruebas.
+Los conteos anteriores (304 unitarias, 32 aceptación/concurrencia, 1 seed) son antecedentes. Esta etapa añade 20 unitarias SSE y 7 escenarios HTTP reales. Se conservaron fallos iniciales: ocho reproducciones SSE, desconexión durante autenticación, tres fallos adicionales con consultas pendientes y un error local de secuencia al correr unitarias sin regenerar Prisma tras npm ci. Ese último fallo se corrigió ejecutando la generación requerida; no se cambiaron ni omitieron pruebas.
 
 [Evidencia local resumida](final-stage-evidence.json) distingue ejecuciones de escenarios únicos. CI publica reportes JSON y logs de comandos, también ante fallos, durante 14 días. El estado CI final debe comprobarse sobre el último SHA publicado, no inferirse de la inspección ni de resultados locales.
 
