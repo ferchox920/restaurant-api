@@ -4,6 +4,7 @@ const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/setup-env.ts'],
   testRegex: '.*\\.spec\\.ts$',
   testPathIgnorePatterns: ['\\.e2e-spec\\.ts$'],
   transform: {

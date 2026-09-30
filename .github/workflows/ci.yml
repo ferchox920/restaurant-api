@@ -1,0 +1,81 @@
+name: Backend foundation
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, node24
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@11.6.2
+      - run: npm ci
+      - run: npm run verify:static
+      - run: npm run verify:unit
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, node24
+        if: always()
+        with:
+          name: unit-evidence
+          path: evidence/
+          retention-days: 14
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [database, seed]
+    services:
+      postgres:
+        image: postgres:17.9
+        env:
+          POSTGRES_USER: foundation
+          POSTGRES_PASSWORD: foundation_disposable
+          POSTGRES_DB: foundation_${{ matrix.suite == 'seed' && 'seed' || 'commercial' }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U foundation"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      FOUNDATION_DATABASE_TESTS: 'true'
+      DATABASE_URL: postgresql://foundation:foundation_disposable@127.0.0.1:5432/foundation_${{ matrix.suite == 'seed' && 'seed' || 'commercial' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@11.6.2
+      - run: npm ci
+      - run: npm run prisma:generate
+      - name: Runtime versions
+        run: |
+          mkdir -p evidence
+          node --version | tee evidence/node-version.log
+          npm --version | tee evidence/npm-version.log
+          npx prisma version | tee evidence/prisma-version.log
+          docker exec "${{ job.services.postgres.id }}" psql -U foundation -d "foundation_${{ matrix.suite == 'seed' && 'seed' || 'commercial' }}" -c 'select version();' | tee evidence/postgres-version.log
+      - run: npm run verify:${{ matrix.suite }}
+      - name: PostgreSQL diagnostics
+        if: always()
+        run: docker logs "${{ job.services.postgres.id }}" > evidence/postgres.log 2>&1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: postgres-${{ matrix.suite }}-evidence
+          path: evidence/
+          retention-days: 14

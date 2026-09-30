@@ -364,7 +364,9 @@ async function ensurePaymentBanks(createdById: string | null): Promise<void> {
   );
 }
 
-async function ensureRestaurantTables(createdById: string | null): Promise<void> {
+async function ensureRestaurantTables(
+  createdById: string | null,
+): Promise<void> {
   let createdTables = 0;
   let skippedTables = 0;
 
@@ -416,7 +418,9 @@ async function ensureDemoProduct(params: {
   });
 
   if (existingProduct) {
-    console.log(`Seed product skipped: ${existingProduct.name} already exists.`);
+    console.log(
+      `Seed product skipped: ${existingProduct.name} already exists.`,
+    );
     return existingProduct;
   }
 
@@ -454,7 +458,9 @@ async function ensureCurrentCost(params: {
   });
 
   if (existingCurrentCost) {
-    console.log(`Seed cost skipped: ${params.productName} already has current cost.`);
+    console.log(
+      `Seed cost skipped: ${params.productName} already has current cost.`,
+    );
     return;
   }
 
@@ -521,7 +527,9 @@ async function ensureInitialStock(params: {
   });
 
   if (existingStock) {
-    console.log(`Seed stock skipped: ${params.productName} already has stock row.`);
+    console.log(
+      `Seed stock skipped: ${params.productName} already has stock row.`,
+    );
     return;
   }
 
@@ -561,7 +569,9 @@ async function ensureInitialStock(params: {
     }),
   ]);
 
-  console.log(`Seed stock created: ${params.productName} => ${params.quantity}.`);
+  console.log(
+    `Seed stock created: ${params.productName} => ${params.quantity}.`,
+  );
 }
 
 async function main(): Promise<void> {
