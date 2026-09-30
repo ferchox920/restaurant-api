@@ -5,4 +5,5 @@ export type JwtPayload = {
   email: string;
   role: Role;
   jti?: string;
+  exp?: number;
 };

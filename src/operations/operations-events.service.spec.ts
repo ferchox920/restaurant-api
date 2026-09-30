@@ -2,6 +2,15 @@ import { ConfigService } from '@nestjs/config';
 import { EventEmitter } from 'node:events';
 import type { Response } from 'express';
 import { OperationsEventsService } from './operations-events.service';
+import { Role } from '@prisma/client';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.type';
+
+const identity = {
+  id: 'user-1',
+  role: Role.ADMIN,
+  sessionJti: 'test-session',
+  sessionExpiresAt: new Date('2099-01-01'),
+} as AuthenticatedUser;
 
 describe('Operational SSE wire contract', () => {
   function setup(events: unknown[], enabled = true) {
@@ -12,7 +21,21 @@ describe('Operational SSE wire contract', () => {
       write: jest.fn(),
     });
     const service = new OperationsEventsService(
-      { operationEvent: { findMany } } as never,
+      {
+        authSession: {
+          findUnique: jest.fn().mockResolvedValue({
+            userId: identity.id,
+            revokedAt: null,
+            expiresAt: identity.sessionExpiresAt,
+            user: { active: true, role: identity.role },
+          }),
+        },
+        operationEvent: {
+          findMany,
+          findUnique: jest.fn().mockResolvedValue({ createdAt: new Date() }),
+          findFirst: jest.fn().mockResolvedValue({ id: 1001n }),
+        },
+      } as never,
       new ConfigService({ OPERATIONS_SSE: enabled }),
     );
     return { service, response, findMany };
@@ -30,7 +53,7 @@ describe('Operational SSE wire contract', () => {
       },
     ]);
     try {
-      await service.connect('user-1', 12n, response as unknown as Response);
+      await service.connect(identity, 12n, response as unknown as Response);
       expect(findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: { gt: 12n } }),
@@ -49,9 +72,9 @@ describe('Operational SSE wire contract', () => {
       Array.from({ length: 1001 }, (_, index) => ({ id: BigInt(index + 1) })),
     );
     try {
-      await service.connect('user-1', 0n, response as unknown as Response);
+      await service.connect(identity, 0n, response as unknown as Response);
       expect(response.write).toHaveBeenCalledWith(
-        'event: resync.required\ndata: {"reason":"replay_limit"}\n\n',
+        'id: 1001\nevent: resync.required\ndata: {"reason":"replay_limit"}\n\n',
       );
     } finally {
       response.emit('close');
@@ -61,7 +84,7 @@ describe('Operational SSE wire contract', () => {
   it('is unavailable when its feature flag is disabled', async () => {
     const { service, response } = setup([], false);
     await expect(
-      service.connect('user-1', 0n, response as unknown as Response),
+      service.connect(identity, 0n, response as unknown as Response),
     ).rejects.toMatchObject({ status: 503 });
     expect(response.flushHeaders).not.toHaveBeenCalled();
   });

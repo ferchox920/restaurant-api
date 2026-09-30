@@ -71,6 +71,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       sessionJti: payload.jti,
+      sessionExpiresAt: payload.exp ? new Date(payload.exp * 1000) : undefined,
     };
   }
 }

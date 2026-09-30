@@ -28,7 +28,8 @@
     "verify:static": "node scripts/verify.mjs static",
     "verify:unit": "node scripts/verify.mjs unit",
     "verify:database": "node scripts/verify.mjs database",
-    "verify:seed": "node scripts/verify.mjs seed"
+    "verify:seed": "node scripts/verify.mjs seed",
+    "audit:check": "node scripts/audit-dependencies.mjs evidence"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -86,5 +87,13 @@
     "node": "24.19.0",
     "npm": "11.6.2"
   },
-  "packageManager": "npm@11.6.2"
+  "packageManager": "npm@11.6.2",
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "5.4.2"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
+  }
 }

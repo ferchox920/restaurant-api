@@ -1,5 +1,7 @@
 # Restaurat API
 
+Interfaz: [Restaurant Admin](https://github.com/ferchox920/restaurant-admin). Seguridad SSE, dependencias, recuperación y límites: [etapa técnica final](docs/verification/final-stage.md). La configuración recomendada para demo usa cookie persistida y proxy del mismo origen.
+
 API administrativa para gestion operativa de restaurantes construida con `NestJS`, `TypeScript`, `PostgreSQL` y `Prisma`.
 
 ## Preparación del backend para portafolio

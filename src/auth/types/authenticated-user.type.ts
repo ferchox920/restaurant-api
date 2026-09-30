@@ -1,3 +1,6 @@
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 
-export type AuthenticatedUser = UserResponseDto & { sessionJti?: string };
+export type AuthenticatedUser = UserResponseDto & {
+  sessionJti?: string;
+  sessionExpiresAt?: Date;
+};

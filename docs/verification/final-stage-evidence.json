@@ -1,0 +1,2599 @@
+{
+  "initialSha": "e25b7e1d136247210c6a73c5cdc6d0b50c1eacfd",
+  "scope": "Local execution; final remote CI must be checked independently",
+  "runtime": {
+    "node": "v24.19.0",
+    "postgresFinal": "17.9",
+    "postgresEarlier": "16"
+  },
+  "auditBefore": {
+    "install": 0,
+    "audit": 1,
+    "productionAudit": 1
+  },
+  "auditAfter": [
+    {
+      "scope": "all",
+      "exitCode": 0,
+      "queryError": false,
+      "findings": 0
+    },
+    {
+      "scope": "production",
+      "exitCode": 0,
+      "queryError": false,
+      "findings": 0
+    }
+  ],
+  "commands": [
+    {
+      "suite": "static",
+      "results": [
+        {
+          "name": "prisma-generate",
+          "exitCode": 0,
+          "durationMs": 1183
+        },
+        {
+          "name": "lint",
+          "exitCode": 0,
+          "durationMs": 15948
+        },
+        {
+          "name": "format",
+          "exitCode": 0,
+          "durationMs": 1691
+        },
+        {
+          "name": "types",
+          "exitCode": 0,
+          "durationMs": 3463
+        },
+        {
+          "name": "build",
+          "exitCode": 0,
+          "durationMs": 11077
+        }
+      ]
+    },
+    {
+      "suite": "unit",
+      "results": [
+        {
+          "name": "unit",
+          "exitCode": 0,
+          "durationMs": 12977
+        }
+      ]
+    },
+    {
+      "suite": "database",
+      "results": [
+        {
+          "name": "migrations-commercial",
+          "exitCode": 0,
+          "durationMs": 1163
+        },
+        {
+          "name": "acceptance",
+          "exitCode": 0,
+          "durationMs": 18098
+        }
+      ]
+    },
+    {
+      "suite": "seed",
+      "results": [
+        {
+          "name": "migrations-seed",
+          "exitCode": 0,
+          "durationMs": 1147
+        },
+        {
+          "name": "seed",
+          "exitCode": 0,
+          "durationMs": 8118
+        }
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "file": "evidence/unit.json",
+      "total": 321,
+      "passed": 321,
+      "failed": 0,
+      "pending": 0,
+      "success": true,
+      "tests": [
+        {
+          "name": "toProductCostResponse serializes decimal cost as string and marks current version",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toProductCostResponse marks closed versions as non-current",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toSaleTicketResponse serializes ticket decimals as strings and maps items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toSaleTicketItemResponse serializes item decimals as strings",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toProductPriceResponse serializes decimal price as string and exposes salesChannelName when present",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toProductPriceResponse falls back to null salesChannelName when relation is not loaded",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "RolesGuard allows access when no roles are required",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "RolesGuard returns false when the request has no authenticated user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "RolesGuard throws Forbidden when role is insufficient",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "RolesGuard allows access when the user has a required role",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService creates a table and writes an audit log",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService rejects duplicate table codes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService lists tables with active, area and search filters",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService gets a table by id",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService throws not found for missing tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService updates a table and writes before and after audit snapshots",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService deactivates without deleting the table",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesService reactivates a table",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesController roles metadata requires JWT authentication and role checks at controller level",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesController roles metadata allows all authenticated roles to read tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TablesController roles metadata limits mutations to ADMIN and MANAGER",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CreateTableDto validation accepts a valid table payload and trims strings",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CreateTableDto validation requires code",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CreateTableDto validation rejects invalid capacity",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService creates a user with a hashed password",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService does not allow duplicate email on create",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService lists users without passwordHash",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService deactivates a user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService does not allow deactivating the last active admin",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService creates an audit log without passwordHash when creating a user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService writes before and after snapshots when updating a user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService creates an audit log when deactivating a user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "UsersService creates an audit log when reactivating a user",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService opens an order for an active table and creates a draft sale ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects opening when the table does not exist",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects opening when the table is inactive",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects opening when the table already has an open order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService maps unique constraint races to conflict when opening",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService gets the current open order for a table",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService lists table orders using filters",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService cancels an open order and cancels the associated draft ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects cancelling table orders in CANCELLED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects cancelling table orders in CLOSED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService adds items through the associated draft sale ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService updates items through the associated draft sale ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService removes items through the associated draft sale ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects item changes when table order is CANCELLED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects item changes when table order is CLOSED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService closes an open order and confirms the associated draft sale ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects closing table orders in CANCELLED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersService rejects closing table orders in CLOSED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService creates a sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService creates a sales channel with sub taxes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService rejects duplicated sub tax names",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService does not allow duplicate code",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService does not allow duplicate name",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService normalizes legacy commission fields to NONE and 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService allows legacy commission values because sub taxes are authoritative",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService deactivates a sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService reactivates a sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesChannelsService creates an audit log when creating a sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersController roles metadata requires JWT authentication and role checks at controller level",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersController roles metadata allows all authenticated roles to read table orders",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "TableOrdersController roles metadata allows ADMIN, MANAGER and CASHIER to mutate open orders",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table order DTO validation requires salesChannelId when opening an order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table order DTO validation accepts a valid open order payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table order DTO validation requires a non-empty cancellation reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesController roles metadata uses the /sales/tickets route prefix",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesController roles metadata requires JWT and role guards on every endpoint via class metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesController roles metadata allows ADMIN, MANAGER and CASHIER to mutate tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesController roles metadata does not allow AUDITOR to confirm and does not allow CASHIER or AUDITOR to void",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesController roles metadata allows ADMIN, MANAGER, CASHIER and AUDITOR to read tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService creates a draft sale ticket for an active sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects ticket creation for nonexistent sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects ticket creation for inactive sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService lists tickets using filters and numeric search",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService gets one ticket with items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService updates notes when the ticket is in DRAFT",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects modifications on cancelled tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmed tickets for mutation",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects voided tickets for mutation",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService cancels a draft ticket and stores cancellation metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService does not touch inventory state when cancelling a draft ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService confirms a draft ticket, delegates stock movement and stores confirmation metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService stores transfer payment data during confirmation",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation when a draft ticket has no items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation when final payment method is missing",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation for nonexistent tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation for tickets in CANCELLED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation for tickets in CONFIRMED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation for tickets in VOIDED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation when the sales channel is inactive",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects confirmation when stock movement fails and keeps the transaction atomic",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService preserves item snapshots when confirming a ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService does not touch inventory for NON_STOCKED items when confirming a draft ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService groups duplicate finished-product lines before delegating confirmation stock movement",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService voids a confirmed ticket, delegates reversal and stores void metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService does not touch inventory for NON_STOCKED items when voiding a confirmed ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects void when the ticket is not confirmed",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects void for nonexistent tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects void for tickets in CANCELLED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects void for tickets in VOIDED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService keeps the ticket confirmed when reversal fails",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService adds an item with snapshots and recalculates totals",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects nonexistent products when adding items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects inactive products when adding items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService allows NON_STOCKED products in draft tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects RECIPE_BASED products without stock consumption support",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects missing current price when adding items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects missing current cost when adding items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService merges duplicate product items into the existing line",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService updates an item quantity and recalculates totals",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService preserves snapshot price and cost when updating quantity",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects item updates when the ticket is not in DRAFT",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService removes an item and recalculates totals",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects item deletions when the ticket is not in DRAFT",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SalesService rejects missing tickets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService returns stock report rows with ProductStock fallback and NOT_TRACKED status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService filters stock report by derived stockStatus after mapping",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService aggregates confirmed sales by channel using historical snapshots",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService passes salesChannelId filter to confirmed sales by channel query",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService aggregates sales by product using item snapshots instead of current product data",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService passes product and sales channel filters to sales by product query",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService aggregates sales by confirmed user and resolves user profile data",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService keeps tickets without confirmedById grouped as unknown user bucket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService lists inventory movements using filters and paginated response",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService uses default pagination for inventory movements when limit and offset are not provided",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsService caps inventory movements limit at 100 in the service",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsController roles metadata allows ADMIN, MANAGER and AUDITOR to read all report endpoints",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsController roles metadata does not allow CASHIER in any report endpoint metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ReportsController roles metadata applies JwtAuthGuard and RolesGuard at controller level",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsController roles metadata does not allow CASHIER to create or view costs",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsController roles metadata allows CASHIER to consult current price but not create prices",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService creates a product without stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService creates a product with a valid categoryId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService rejects nonexistent categoryId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService rejects inactive categoryId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService does not allow duplicate sku",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService lists products by active filter",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService lists products by categoryId filter",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService searches products by text",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService deactivates a product",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService reactivates a product",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductsService creates an audit log when creating a product",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService creates the first price for a product and channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService closes the current price only for the same product and channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService propagates transaction failures when creating the new price version",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects price creation for nonexistent products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects price creation for inactive products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects price creation for nonexistent sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects price creation for inactive sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService returns current price for the requested channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService throws when there is no current price for the requested channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects current price lookup for nonexistent products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects current price lookup for nonexistent sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService returns full price history ordered by validFrom desc",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService returns filtered price history for one channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService rejects filtered history lookup for nonexistent sales channels",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductPricesService writes the audit log inside the same transaction when creating a price",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService creates the first cost when there is no current one",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService closes the current cost and creates a new version in one transaction",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService propagates transaction failures when creating the new cost version",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService rejects cost creation for nonexistent products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService rejects cost creation for inactive products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService returns cost history ordered by validFrom desc",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService returns the current cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService throws when there is no current cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService rejects current cost lookup for nonexistent products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService rejects history lookup for nonexistent products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "ProductCostsService writes the audit log inside the same transaction when creating a cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not allocate a stream if the socket closes during initial authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an arbitrary cookie combined with valid bearer authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes revoked sessions within the 3 second bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes sessions when the user changes role",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases the connection slot on initial database failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not overlap replay reads or emit a frame twice",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not send private event types or arbitrary related fields",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions signals a cursor older than the retention window explicitly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes all open responses on module destruction",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an auditor before sending any event",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes a deactivated user within the bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes at JWT expiry even when the stored session has a later expiry",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions fails closed within 3 seconds when session storage stops responding",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases timers, subscribers and slots after a write failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions strips unrestricted related fields and hides inventory events from cashier",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions keeps the three-connection limit and releases a disconnected slot",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions resynchronizes an unknown cursor using a string current cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract writes named events, decimal string ids/versions and related, replaying after the header cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract emits resync.required when more than 1000 events need replay",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract is unavailable when its feature flag is disabled",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PosService keeps the endpoint unavailable while its flag is disabled",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PosService returns at most the requested page and an opaque cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PosService rejects malformed cursors before querying",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService returns stock 0 and minimumStock 0 for finished products without ProductStock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService lists inventory and filters by derived LOW_STOCK status",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService creates ProductStock on first STOCK_IN and stores previous/new stock and createdById",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService adds stock on STOCK_IN when ProductStock already exists",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService subtracts stock on WASTE",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects WASTE when stock is insufficient",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService adds stock on RETURN_IN",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService adjusts stock to the requested value and stores absolute quantity",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects MANUAL_ADJUSTMENT with no effective stock change",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService updates minimumStock without creating InventoryMovement",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService returns movements ordered by createdAt desc with filters",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects nonexistent products for inventory reads and writes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects inventory movements for inactive products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects inventory operations for NON_STOCKED products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService rejects inventory operations for RECIPE_BASED products",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService creates missing ProductStock through the internal helper",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService applySaleOut subtracts stock and creates a SALE_OUT movement",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService applySaleOut rejects insufficient stock without updating inventory",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService applyVoidReversal adds stock and creates a VOID_REVERSAL movement",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService writes an audit log for STOCK_IN movements",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService writes an audit log when minimum stock changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryService writes audit logs for applySaleOut and applyVoidReversal internal movements",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryController roles metadata allows ADMIN, MANAGER, CASHIER and AUDITOR to read inventory",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryController roles metadata allows ADMIN, MANAGER and AUDITOR to read movements",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "InventoryController roles metadata allows only ADMIN and MANAGER to mutate stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "IdempotencyService keeps the legacy path when no key is supplied and the flag is disabled",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "IdempotencyService stores a serializable response and reuses completed records",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "IdempotencyService rejects a reused key with a different body",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "IdempotencyService scopes the key to actor and operation and canonicalizes object field order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "runSerializableTransaction fails explicitly without a transaction instead of running the callback",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "runSerializableTransaction retries serialization conflicts and uses SERIALIZABLE isolation",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "runSerializableTransaction does not execute a callback twice when it resolves to undefined",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "runSerializableTransaction bounds conflict retries and propagates other database failures",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService creates a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService does not allow duplicate category name",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService lists categories",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService gets a category by id",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService updates a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService deactivates a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService reactivates a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService lists categories with active filter without error",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService creates an audit log when creating a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "CategoriesService writes before and after snapshots when updating a category",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuthService returns accessToken and sanitized user on successful login",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuthService throws Unauthorized when password is invalid",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuthService throws Unauthorized when email does not exist",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuthService does not allow inactive users to login",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuthService updates lastLoginAt on successful login",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditService sanitizes sensitive fields recursively before persisting a log",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditService uses the provided transaction client when available",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditService lists logs with filters, pagination defaults and descending order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditService throws NotFound when the audit log does not exist",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditController metadata uses the /audit-logs route prefix",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditController metadata requires JWT and role guards on every endpoint via class metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AuditController metadata allows only ADMIN and AUDITOR to read audit logs",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "MVP readiness smoke tests serves public API metadata from GET /api",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "MVP readiness smoke tests serves liveness from GET /health without the global prefix",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "MVP readiness smoke tests serves readiness from GET /health/readiness without the global prefix",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "MVP readiness smoke tests serves login on POST /api/auth/login",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers allows any origin when CORS origin is empty",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers parses CSV origins",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers rejects wildcard CORS in production when enabled",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers allows explicit origins in production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers always enables CORS outside production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "main bootstrap helpers keeps production CORS behind the feature flag",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts create sale ticket payload with valid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects create sale ticket payload with invalid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts add item payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects add item payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects update item payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects cancel payload without reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts empty confirm payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts confirm payload with transfer payment method and bank",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects update payload with invalid paymentBankId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts void payload with valid reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects void payload with too short reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts query payload with valid filters",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts valid required variables and defaults CORS_ENABLED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema defaults PORT to 3000 when it is missing",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects invalid NODE_ENV values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing DATABASE_URL",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing JWT_SECRET",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts CSV CORS origins",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema requires a JWT secret of at least 32 characters in production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts a strong JWT secret in production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing JWT_SECRET in production too",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid date ranges",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects date ranges where from is greater than to",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid UUID values in stock query",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid movementType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid movementType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid referenceType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid referenceType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid createdById values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects limit above 100",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects negative offset",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts stock in payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects stock in payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts manual adjustment with target stock 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects manual adjustment with negative newStock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects waste payload without reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts return in payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts minimum stock 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects negative minimum stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs accepts cost 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects negative cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs accepts price 0 with valid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects invalid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects negative price",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto applies bounded defaults",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto transforms numeric query strings",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto rejects limits over 100 and negative offsets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthController delegates liveness checks to the service",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthController delegates readiness checks to the service",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns liveness payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns readiness payload when database check succeeds",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns a safe error when database check fails",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AppService returns public API metadata",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toStockReportResponse returns zero stock values when ProductStock is missing",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toStockReportResponse marks NON_STOCKED and RECIPE_BASED products as NOT_TRACKED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse serializes decimals as strings and resolves AVAILABLE",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse falls back to zero stock when ProductStock does not exist",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse resolves LOW_STOCK when currentStock is above 0 and below or equal minimumStock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives AVAILABLE for active tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives OCCUPIED for active tables with an open order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives INACTIVE for inactive tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryMovementResponse serializes decimals as strings and exposes productName",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryMovementResponse falls back to empty productName when relation is not loaded",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/acceptance.json",
+      "total": 39,
+      "passed": 39,
+      "failed": 0,
+      "pending": 0,
+      "success": true,
+      "tests": [
+        {
+          "name": "Backend foundation PostgreSQL guarantees rolls back commercial effects when persisting the idempotent response fails, then retries safely",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees increments the comanda version when removing a consumption",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees rolls back items, totals and audit when the comanda version update fails",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees opens exactly one order when requests overlap",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees rejects one of two edits using the same comanda version",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees keeps ticket and comanda coherent when update overlaps close",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees keeps ticket and comanda coherent when remove overlaps close",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees does not duplicate stock exit when closing twice",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees does not duplicate reversal when voiding twice",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees never goes negative when two sales compete for insufficient stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees rolls back close including ticket, order, movements, audit and events on an intermediate fault",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees recovers a committed response and conflicts on a different payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees concurrent identical keys confirm once and recover the same result",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees keeps a linked comanda version coherent when its ticket is edited directly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees closes a linked comanda atomically when confirming its ticket directly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees cancels a linked comanda atomically when cancelling its ticket directly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees accepts DELETE expectedVersion as a string query and rejects stale or numeric DTO versions",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees retains expired completed keys and blocks legacy incomplete keys until reconciliation",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees conflicts on concurrent different payloads using one idempotency key",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees does not expose effects while the idempotent response is still uncommitted",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees supports bearer and cookie, revokes session tokens on logout, and preserves legacy bearer semantics",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Backend foundation PostgreSQL guarantees requires string versions and idempotency keys only when optimistic versioning is enabled",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL rejects anonymous requests, arbitrary cookies and bearer disguised as cookie authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL rejects an authenticated auditor before opening a stream",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after revoked changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after inactive changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after role changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes at JWT expiry without waiting for a heartbeat",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL explicitly resynchronizes a cursor outside retention without losing bigint precision",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e validates whether the complete table-order sales objective is reached",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e rejects opening orders on inactive tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e rejects double open orders on the same table",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e rejects closing an order without items",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e rejects products without current price for the table sales channel",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e rejects products without current cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e keeps stock and order state unchanged when closing with insufficient stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e cancels an open order without stock movement or confirmed ticket",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Table orders backend acceptance e2e enforces authentication and role permissions",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports aggregation e2e aggregates confirmed sales in PostgreSQL without changing response shapes",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/seed.json",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "pending": 0,
+      "success": true,
+      "tests": [
+        {
+          "name": "Independent fictitious seed verification seeds an empty migrated database twice without duplicates, inflation or broken references, and preserves sold stock on the third run",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/final-stage/sse-reproduction.json",
+      "total": 8,
+      "passed": 0,
+      "failed": 8,
+      "pending": 0,
+      "success": false,
+      "tests": [
+        {
+          "name": "SSE security and lifecycle regressions rejects an arbitrary cookie combined with valid bearer authentication",
+          "status": "failed",
+          "failure": "Error: expect(received).toThrow()\n\nReceived function did not throw\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:26:103)\n    at Promise.finally.completed (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1561:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1501:10)\n    at _callCircusTest (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1011:40)\n    at _runTest (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:951:3)\n    at C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:853:7\n    at _runTestsForDescribeBlock (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:866:11)\n    at _runTestsForDescribeBlock (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\build\\jestAdapterInit.js:861:11)\n    at run (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\node_modules\\jest-circus\\"
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes revoked sessions within the 3 second bound",
+          "status": "failed",
+          "failure": "Error: expect(jest.fn()).toHaveBeenCalled()\n\nExpected number of calls: >= 1\nReceived number of calls:    0\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:30:127)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes sessions when the user changes role",
+          "status": "failed",
+          "failure": "Error: expect(jest.fn()).toHaveBeenCalled()\n\nExpected number of calls: >= 1\nReceived number of calls:    0\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:35:129)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases the connection slot on initial database failure",
+          "status": "failed",
+          "failure": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 0\nReceived: 1\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:41:92)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not overlap replay reads or emit a frame twice",
+          "status": "failed",
+          "failure": "Error: expect(received).toBe(expected) // Object.is equality\n\nExpected: 2\nReceived: 3\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:54:19)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not send private event types or arbitrary related fields",
+          "status": "failed",
+          "failure": "Error: expect(received).not.toContain(expected) // indexOf\n\nExpected substring: not \"private\"\nReceived string:        \"id: 1\nevent: user.changed\ndata: {\\\"entityType\\\":\\\"User\\\",\\\"entityId\\\":\\\"private\\\",\\\"version\\\":\\\"1\\\",\\\"related\\\":{\\\"email\\\":\\\"private@example.com\\\"}}\n\n\"\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:58:59)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions signals a cursor older than the retention window explicitly",
+          "status": "failed",
+          "failure": "Error: expect(received).toContain(expected) // indexOf\n\nExpected substring: \"resync.required\"\nReceived string:    \"\"\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:63:57)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes all open responses on module destruction",
+          "status": "failed",
+          "failure": "Error: expect(jest.fn()).toHaveBeenCalled()\n\nExpected number of calls: >= 1\nReceived number of calls:    0\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:68:88)"
+        }
+      ]
+    },
+    {
+      "file": "evidence/final-stage/sse-startup-reproduction.json",
+      "total": 20,
+      "passed": 19,
+      "failed": 1,
+      "pending": 0,
+      "success": false,
+      "tests": [
+        {
+          "name": "SSE security and lifecycle regressions does not allocate a stream if the socket closes during initial authentication",
+          "status": "failed",
+          "failure": "Error: expect(jest.fn()).not.toHaveBeenCalled()\n\nExpected number of calls: 0\nReceived number of calls: 1\n\n1: called with 0 arguments\n    at Object.<anonymous> (C:\\Users\\ferna\\.codex\\worktrees\\portfolio-final-930\\restaurant-api\\src\\operations\\operations-security.spec.ts:71:43)"
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an arbitrary cookie combined with valid bearer authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes revoked sessions within the 3 second bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes sessions when the user changes role",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases the connection slot on initial database failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not overlap replay reads or emit a frame twice",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not send private event types or arbitrary related fields",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions signals a cursor older than the retention window explicitly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes all open responses on module destruction",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an auditor before sending any event",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes a deactivated user within the bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes at JWT expiry even when the stored session has a later expiry",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions fails closed within 3 seconds when session storage stops responding",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases timers, subscribers and slots after a write failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions strips unrestricted related fields and hides inventory events from cashier",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions keeps the three-connection limit and releases a disconnected slot",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions resynchronizes an unknown cursor using a string current cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract writes named events, decimal string ids/versions and related, replaying after the header cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract emits resync.required when more than 1000 events need replay",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract is unavailable when its feature flag is disabled",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/final-stage/sse-after-startup-fix.json",
+      "total": 20,
+      "passed": 20,
+      "failed": 0,
+      "pending": 0,
+      "success": true,
+      "tests": [
+        {
+          "name": "SSE security and lifecycle regressions does not allocate a stream if the socket closes during initial authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an arbitrary cookie combined with valid bearer authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes revoked sessions within the 3 second bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes sessions when the user changes role",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases the connection slot on initial database failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not overlap replay reads or emit a frame twice",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions does not send private event types or arbitrary related fields",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions signals a cursor older than the retention window explicitly",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes all open responses on module destruction",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions rejects an auditor before sending any event",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes a deactivated user within the bound",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions closes at JWT expiry even when the stored session has a later expiry",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions fails closed within 3 seconds when session storage stops responding",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions releases timers, subscribers and slots after a write failure",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions strips unrestricted related fields and hides inventory events from cashier",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions keeps the three-connection limit and releases a disconnected slot",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE security and lifecycle regressions resynchronizes an unknown cursor using a string current cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract writes named events, decimal string ids/versions and related, replaying after the header cursor",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract emits resync.required when more than 1000 events need replay",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Operational SSE wire contract is unavailable when its feature flag is disabled",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/final-stage/sse-http-metrics.json",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "pending": 0,
+      "success": true,
+      "tests": [
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL rejects anonymous requests, arbitrary cookies and bearer disguised as cookie authentication",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL rejects an authenticated auditor before opening a stream",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after revoked changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after inactive changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes an existing stream within 3000 ms after role changes",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL closes at JWT expiry without waiting for a heartbeat",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "SSE persisted cookie sessions over real HTTP and PostgreSQL explicitly resynchronizes a cursor outside retention without losing bigint precision",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    },
+    {
+      "file": "evidence/final-stage/unit-generation-failure.json",
+      "total": 63,
+      "passed": 63,
+      "failed": 0,
+      "pending": 0,
+      "success": false,
+      "tests": [
+        {
+          "name": "sale ticket DTOs accepts create sale ticket payload with valid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects create sale ticket payload with invalid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts add item payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects add item payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects update item payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects cancel payload without reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts empty confirm payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts confirm payload with transfer payment method and bank",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects update payload with invalid paymentBankId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts void payload with valid reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs rejects void payload with too short reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "sale ticket DTOs accepts query payload with valid filters",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid date ranges",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects date ranges where from is greater than to",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid UUID values in stock query",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid movementType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid movementType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation accepts valid referenceType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid referenceType values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects invalid createdById values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects limit above 100",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "Reports DTO validation rejects negative offset",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts valid required variables and defaults CORS_ENABLED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema defaults PORT to 3000 when it is missing",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects invalid NODE_ENV values",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing DATABASE_URL",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing JWT_SECRET",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts CSV CORS origins",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema requires a JWT secret of at least 32 characters in production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema accepts a strong JWT secret in production",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "envValidationSchema rejects missing JWT_SECRET in production too",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts stock in payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects stock in payload with quantity 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts manual adjustment with target stock 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects manual adjustment with negative newStock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects waste payload without reason",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts return in payload with quantity greater than 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs accepts minimum stock 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "inventory DTOs rejects negative minimum stock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse serializes decimals as strings and resolves AVAILABLE",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse falls back to zero stock when ProductStock does not exist",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryStockResponse resolves LOW_STOCK when currentStock is above 0 and below or equal minimumStock",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toStockReportResponse returns zero stock values when ProductStock is missing",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toStockReportResponse marks NON_STOCKED and RECIPE_BASED products as NOT_TRACKED",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthController delegates liveness checks to the service",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthController delegates readiness checks to the service",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryMovementResponse serializes decimals as strings and exposes productName",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toInventoryMovementResponse falls back to empty productName when relation is not loaded",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns liveness payload",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns readiness payload when database check succeeds",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "HealthService returns a safe error when database check fails",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs accepts cost 0",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects negative cost",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs accepts price 0 with valid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects invalid salesChannelId",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "cost and price DTOs rejects negative price",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives AVAILABLE for active tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives OCCUPIED for active tables with an open order",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "toTableResponse derives INACTIVE for inactive tables",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto applies bounded defaults",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto transforms numeric query strings",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "PaginationQueryDto rejects limits over 100 and negative offsets",
+          "status": "passed",
+          "failure": ""
+        },
+        {
+          "name": "AppService returns public API metadata",
+          "status": "passed",
+          "failure": ""
+        }
+      ]
+    }
+  ],
+  "closureMeasurements": [
+    {
+      "scenario": "revoked",
+      "elapsedMs": 1996.304
+    },
+    {
+      "scenario": "inactive",
+      "elapsedMs": 2012.862
+    },
+    {
+      "scenario": "role",
+      "elapsedMs": 2008.924
+    },
+    {
+      "scenario": "JWT expiry",
+      "elapsedMs": 1114.626
+    }
+  ],
+  "newUniqueUnitScenarios": 17,
+  "newUniqueHttpScenarios": 7,
+  "skippedFinal": 0,
+  "automaticTestRetries": 0
+}
