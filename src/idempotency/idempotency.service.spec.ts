@@ -19,7 +19,12 @@ describe('IdempotencyService', () => {
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     };
     service = new IdempotencyService(
-      { idempotencyRecord: records } as never,
+      {
+        idempotencyRecord: records,
+        $transaction: jest.fn(async (callback) =>
+          callback({ idempotencyRecord: records }),
+        ),
+      } as never,
       config as never,
     );
   });
@@ -86,5 +91,25 @@ describe('IdempotencyService', () => {
         run: jest.fn(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('scopes the key to actor and operation and canonicalizes object field order', async () => {
+    const run = jest.fn().mockResolvedValue({ id: 'result' });
+    const input = {
+      key: 'same',
+      userId: 'actor-1',
+      operation: 'confirm',
+      body: { a: 1, b: 2 },
+      run,
+    };
+    await service.execute(input);
+    await service.execute({ ...input, body: { b: 2, a: 1 } });
+    await service.execute({ ...input, userId: 'actor-2' });
+    await service.execute({ ...input, operation: 'void' });
+    const data = records.create.mock.calls.map((call) => call[0].data);
+    expect(data[0].keyHash).toBe(data[1].keyHash);
+    expect(data[0].requestHash).toBe(data[1].requestHash);
+    expect(data[0].keyHash).not.toBe(data[2].keyHash);
+    expect(data[0].keyHash).not.toBe(data[3].keyHash);
   });
 });

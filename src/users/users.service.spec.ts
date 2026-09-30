@@ -27,7 +27,7 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     prismaService = {
-      $transaction: jest.fn(),
+      $transaction: jest.fn(async (callback) => callback(prismaService)),
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
