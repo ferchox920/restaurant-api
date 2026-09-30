@@ -18,6 +18,6 @@ export class OperationsEventsController {
     @Res() response: Response,
   ): Promise<void> {
     const parsed = /^\d+$/.test(lastEventId ?? '') ? BigInt(lastEventId!) : 0n;
-    return this.events.connect(user.id, parsed, response);
+    return this.events.connect(user, parsed, response);
   }
 }

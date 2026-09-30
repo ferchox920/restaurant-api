@@ -1,0 +1,99 @@
+{
+  "date": "2026-09-30",
+  "timezone": "America/Buenos_Aires",
+  "base": "f5f0b75b0c49c230fe7ec2b3feee582da182cbb8",
+  "implementationCommit": "6bb8983a7c616b0535cec41b88d9e1f5291db38d",
+  "versions": {
+    "node": "v24.19.0",
+    "npm": "11.6.2",
+    "prisma": "6.19.3",
+    "postgres": "17.9"
+  },
+  "suites": {
+    "unit": {
+      "passed": 304,
+      "failed": 0,
+      "omitted": 0,
+      "suitesPassed": 44,
+      "suitesFailed": 0
+    },
+    "postgres": {
+      "passed": 32,
+      "failed": 0,
+      "omitted": 0,
+      "suitesPassed": 3,
+      "suitesFailed": 0
+    },
+    "seed": {
+      "passed": 1,
+      "failed": 0,
+      "omitted": 0,
+      "suitesPassed": 1,
+      "suitesFailed": 0
+    }
+  },
+  "controls": {
+    "static": [
+      {
+        "name": "prisma-generate",
+        "exitCode": 0,
+        "durationMs": 2217
+      },
+      {
+        "name": "lint",
+        "exitCode": 0,
+        "durationMs": 19845
+      },
+      {
+        "name": "format",
+        "exitCode": 0,
+        "durationMs": 1642
+      },
+      {
+        "name": "types",
+        "exitCode": 0,
+        "durationMs": 3005
+      },
+      {
+        "name": "build",
+        "exitCode": 0,
+        "durationMs": 13739
+      }
+    ],
+    "unit": [
+      {
+        "name": "unit",
+        "exitCode": 0,
+        "durationMs": 32513
+      }
+    ],
+    "postgres": [
+      {
+        "name": "migrations-commercial",
+        "exitCode": 0,
+        "durationMs": 1229
+      },
+      {
+        "name": "acceptance",
+        "exitCode": 0,
+        "durationMs": 15170
+      }
+    ],
+    "seed": [
+      {
+        "name": "migrations-seed",
+        "exitCode": 0,
+        "durationMs": 1210
+      },
+      {
+        "name": "seed",
+        "exitCode": 0,
+        "durationMs": 10919
+      }
+    ]
+  },
+  "cleanInstall": "npm ci passed after minimal lockfile repair",
+  "commercialDatabase": "foundation_commercial_verified",
+  "seedDatabase": "foundation_seed_verified",
+  "migrationsPerEmptyDatabase": 16
+}

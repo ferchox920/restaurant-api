@@ -201,10 +201,7 @@ export class TableOrdersService {
           where: { id },
           data: {
             status: TableOrderStatus.CANCELLED,
-            ...(dto.expectedVersion ||
-            this.configService.get<boolean>('OPTIMISTIC_VERSIONING')
-              ? { version: { increment: 1 } }
-              : {}),
+            version: { increment: 1 },
             cancelledById,
             cancelledAt: new Date(),
             cancelReason: dto.reason,
@@ -242,24 +239,18 @@ export class TableOrdersService {
     dto: AddSaleTicketItemDto,
     actorUserId: string,
   ): Promise<TableOrderResponseDto> {
-    const order = await this.getOpenOrderOrThrow(id);
-    this.assertExpectedVersion(order, dto.expectedVersion);
-    await this.salesService.addItem(
-      order.saleTicketId,
-      {
-        ...dto,
-        ...(dto.expectedVersion
-          ? { expectedVersion: (order.saleTicket.version ?? 1n).toString() }
-          : {}),
-      },
-      actorUserId,
+    return this.mutateItems(id, dto.expectedVersion, (order, tx) =>
+      this.salesService.addItem(
+        order.saleTicketId,
+        {
+          ...dto,
+          expectedVersion: (order.saleTicket.version ?? 1n).toString(),
+        },
+        actorUserId,
+        tx,
+        true,
+      ),
     );
-    await this.prisma.tableOrder.update({
-      where: { id },
-      data: { version: { increment: 1 } },
-    });
-
-    return this.findOne(id);
   }
 
   async updateItem(
@@ -268,42 +259,68 @@ export class TableOrdersService {
     dto: UpdateSaleTicketItemDto,
     actorUserId: string,
   ): Promise<TableOrderResponseDto> {
-    const order = await this.getOpenOrderOrThrow(id);
-    this.assertExpectedVersion(order, dto.expectedVersion);
-    await this.salesService.updateItem(
-      order.saleTicketId,
-      itemId,
-      {
-        ...dto,
-        ...(dto.expectedVersion
-          ? { expectedVersion: (order.saleTicket.version ?? 1n).toString() }
-          : {}),
-      },
-      actorUserId,
+    return this.mutateItems(id, dto.expectedVersion, (order, tx) =>
+      this.salesService.updateItem(
+        order.saleTicketId,
+        itemId,
+        {
+          ...dto,
+          expectedVersion: (order.saleTicket.version ?? 1n).toString(),
+        },
+        actorUserId,
+        tx,
+        true,
+      ),
     );
-    await this.prisma.tableOrder.update({
-      where: { id },
-      data: { version: { increment: 1 } },
-    });
-
-    return this.findOne(id);
   }
 
   async removeItem(
     id: string,
     itemId: string,
     actorUserId: string,
+    expectedVersion?: string,
   ): Promise<TableOrderResponseDto> {
-    const order = await this.getOpenOrderOrThrow(id);
-    await this.salesService.removeItem(order.saleTicketId, itemId, actorUserId);
+    return this.mutateItems(id, expectedVersion, (order, tx) =>
+      this.salesService.removeItem(
+        order.saleTicketId,
+        itemId,
+        actorUserId,
+        (order.saleTicket.version ?? 1n).toString(),
+        tx,
+        true,
+      ),
+    );
+  }
 
-    return this.findOne(id);
+  private async mutateItems(
+    id: string,
+    expectedVersion: string | undefined,
+    mutate: (
+      order: Awaited<ReturnType<TableOrdersService['getOrderOrThrow']>>,
+      tx: TableOrdersTransactionClient,
+    ) => Promise<unknown>,
+  ): Promise<TableOrderResponseDto> {
+    const order = await this.runInTransaction(async (tx) => {
+      const existing = await this.getOrderOrThrow(id, tx);
+      this.assertExpectedVersion(existing, expectedVersion);
+      this.ensureOrderStatus(existing.status, TableOrderStatus.OPEN);
+      await mutate(existing, tx);
+      const updated = await tx.tableOrder.update({
+        where: { id },
+        data: { version: { increment: 1 } },
+        include: tableOrderInclude,
+      });
+      await this.emitOperationEvent(tx, updated);
+      return updated;
+    });
+    return toTableOrderResponse(order);
   }
 
   async close(
     id: string,
     dto: ConfirmSaleTicketDto,
     closedById: string,
+    transaction?: TableOrdersTransactionClient,
   ): Promise<TableOrderResponseDto> {
     const order = await this.runInTransaction(
       async (tx: TableOrdersTransactionClient) => {
@@ -331,10 +348,7 @@ export class TableOrdersService {
           where: { id },
           data: {
             status: TableOrderStatus.CLOSED,
-            ...(dto.expectedVersion ||
-            this.configService.get<boolean>('OPTIMISTIC_VERSIONING')
-              ? { version: { increment: 1 } }
-              : {}),
+            version: { increment: 1 },
             closedById,
             closedAt: new Date(),
           },
@@ -360,6 +374,7 @@ export class TableOrdersService {
 
         return updatedOrder;
       },
+      transaction,
     );
 
     return toTableOrderResponse(order);
@@ -419,13 +434,6 @@ export class TableOrdersService {
     if (!order) {
       throw new NotFoundException(`Table order with id "${id}" was not found.`);
     }
-
-    return order;
-  }
-
-  private async getOpenOrderOrThrow(id: string) {
-    const order = await this.getOrderOrThrow(id);
-    this.ensureOrderStatus(order.status, TableOrderStatus.OPEN);
 
     return order;
   }
@@ -510,7 +518,9 @@ export class TableOrdersService {
 
   private runInTransaction<T>(
     callback: (tx: TableOrdersTransactionClient) => Promise<T>,
+    transaction?: TableOrdersTransactionClient,
   ): Promise<T> {
+    if (transaction) return callback(transaction);
     return runSerializableTransaction(this.prisma, callback).catch((error) => {
       this.handleOpenOrderConflict(error);
       throw error;

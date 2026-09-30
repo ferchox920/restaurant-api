@@ -32,7 +32,7 @@ describe('InventoryService', () => {
 
   beforeEach(() => {
     prismaService = {
-      $transaction: jest.fn(),
+      $transaction: jest.fn(async (callback) => callback(prismaService)),
       product: {
         findMany: jest.fn(),
         findUnique: jest.fn(),

@@ -39,6 +39,7 @@ import { OpenTableOrderDto } from './dto/open-table-order.dto';
 import { TableOrderQueryDto } from './dto/table-order-query.dto';
 import { TableOrderResponseDto } from './dto/table-order-response.dto';
 import { TableOrdersService } from './table-orders.service';
+import { ExpectedVersionDto } from '../common/dto/expected-version.dto';
 import { IdempotencyService } from '../idempotency/idempotency.service';
 
 @ApiTags('table-orders')
@@ -197,8 +198,14 @@ export class TableOrdersController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ExpectedVersionDto = {},
   ): Promise<TableOrderResponseDto> {
-    return this.tableOrdersService.removeItem(id, itemId, user.id);
+    return this.tableOrdersService.removeItem(
+      id,
+      itemId,
+      user.id,
+      query.expectedVersion,
+    );
   }
 
   @Post('table-orders/:id/close')
@@ -229,7 +236,7 @@ export class TableOrdersController {
       userId: user.id,
       operation: `table-order.close:${id}`,
       body: dto,
-      run: () => this.tableOrdersService.close(id, dto, user.id),
+      run: (tx) => this.tableOrdersService.close(id, dto, user.id, tx),
     });
   }
 }

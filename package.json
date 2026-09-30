@@ -7,7 +7,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
     "prisma": "prisma",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -19,7 +19,17 @@
     "start:prod": "node dist/main",
     "start:dev": "nest start --watch",
     "test": "jest",
-    "test:e2e": "jest --config jest.e2e.config.ts"
+    "test:e2e": "jest --config jest.e2e.config.ts",
+    "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/seed.ts\" \"scripts/**/*.mjs\" \"*.json\" \"*.ts\" \"*.mjs\" \".github/**/*.yml\"",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "jest --runInBand",
+    "test:seed": "jest --config jest.seed.config.ts --runInBand",
+    "verify:static": "node scripts/verify.mjs static",
+    "verify:unit": "node scripts/verify.mjs unit",
+    "verify:database": "node scripts/verify.mjs database",
+    "verify:seed": "node scripts/verify.mjs seed",
+    "audit:check": "node scripts/audit-dependencies.mjs evidence"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -72,5 +82,18 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.34.1"
+  },
+  "engines": {
+    "node": "24.19.0",
+    "npm": "11.6.2"
+  },
+  "packageManager": "npm@11.6.2",
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "5.4.2"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
   }
 }

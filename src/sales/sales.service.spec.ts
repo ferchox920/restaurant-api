@@ -8,6 +8,7 @@ import { StockManagementType } from '../products/product.enums';
 import { SalesService } from './sales.service';
 
 type TxMock = {
+  tableOrder: { findUnique: jest.Mock };
   paymentBank: {
     findUnique: jest.Mock;
   };
@@ -56,6 +57,7 @@ describe('SalesService', () => {
   };
   let prismaService: {
     $transaction: jest.Mock;
+    tableOrder: { findUnique: jest.Mock };
     paymentBank: {
       findUnique: jest.Mock;
     };
@@ -81,7 +83,8 @@ describe('SalesService', () => {
 
   beforeEach(() => {
     prismaService = {
-      $transaction: jest.fn(),
+      tableOrder: { findUnique: jest.fn().mockResolvedValue(null) },
+      $transaction: jest.fn(async (callback) => callback(prismaService)),
       paymentBank: {
         findUnique: jest.fn(),
       },
@@ -192,6 +195,7 @@ describe('SalesService', () => {
 
   function makeDraftTx(overrides: Partial<TxMock> = {}): TxMock {
     return {
+      tableOrder: { findUnique: jest.fn().mockResolvedValue(null) },
       paymentBank: {
         findUnique: jest.fn(),
       },

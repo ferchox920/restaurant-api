@@ -38,6 +38,7 @@ import { UpdateSaleTicketItemDto } from './dto/update-sale-ticket-item.dto';
 import { UpdateSaleTicketDto } from './dto/update-sale-ticket.dto';
 import { VoidSaleTicketDto } from './dto/void-sale-ticket.dto';
 import { SalesService } from './sales.service';
+import { ExpectedVersionDto } from '../common/dto/expected-version.dto';
 import { IdempotencyService } from '../idempotency/idempotency.service';
 
 @ApiTags('sale-tickets')
@@ -244,8 +245,14 @@ export class SalesController {
     @Param('ticketId', new ParseUUIDPipe()) ticketId: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ExpectedVersionDto = {},
   ): Promise<SaleTicketResponseDto> {
-    return this.salesService.removeItem(ticketId, itemId, user.id);
+    return this.salesService.removeItem(
+      ticketId,
+      itemId,
+      user.id,
+      query.expectedVersion,
+    );
   }
 
   @Post(':ticketId/cancel')
@@ -314,7 +321,7 @@ export class SalesController {
       userId: user.id,
       operation: `sale-ticket.confirm:${ticketId}`,
       body: dto,
-      run: () => this.salesService.confirm(ticketId, dto, user.id),
+      run: (tx) => this.salesService.confirm(ticketId, dto, user.id, tx),
     });
   }
 
@@ -351,7 +358,7 @@ export class SalesController {
       userId: user.id,
       operation: `sale-ticket.void:${ticketId}`,
       body: dto,
-      run: () => this.salesService.void(ticketId, dto, user.id),
+      run: (tx) => this.salesService.void(ticketId, dto, user.id, tx),
     });
   }
 }

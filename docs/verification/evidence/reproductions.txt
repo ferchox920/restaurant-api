@@ -1,0 +1,208 @@
+install-baseline
+npm error code EUSAGE
+npm error
+npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+npm error
+npm error Invalid: lock file's @emnapi/wasi-threads@1.2.2 does not satisfy @emnapi/wasi-threads@1.2.3
+npm error
+npm error Clean install a project
+npm error
+npm error Usage:
+
+unit-baseline-configured
+Test Suites: 43 passed, 43 total
+Tests:       298 passed, 298 total
+Time:        10.249 s, estimated 46 s
+
+e2e-baseline
+Test Suites: 2 passed, 2 total
+Tests:       10 passed, 10 total
+Time:        9.32 s
+
+reproduction
+FAIL test/foundation.e2e-spec.ts
+  ● Backend foundation PostgreSQL guarantees › rolls back commercial effects when persisting the idempotent response fails, then retries safely
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "5"
+    Received: "3"
+
+      103 |     instrument(async (model, method) => { if (model === 'idempotencyRecord' && method === 'update') throw new Error('response persistence fault'); });
+      104 |     await expect(confirm(draft.id)).rejects.toThrow('response persistence fault');
+    > 105 |     expect(await stock()).toBe('5');
+          |                           ^
+      106 |     expect(await counts()).toEqual(before);
+      107 |     expect((await sales.findOne(draft.id)).status).toBe('DRAFT');
+      108 |     jest.restoreAllMocks();
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:105:27)
+
+  ● Backend foundation PostgreSQL guarantees › increments the comanda version when removing a consumption
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "3"
+    Received: "2"
+
+      115 |     const current = await order();
+      116 |     const updated = await orders.removeItem(current.id, current.saleTicket.items[0].id, userId);
+    > 117 |     expect(updated.version).toBe((BigInt(current.version) + 1n).toString());
+          |                             ^
+      118 |     expect(updated.saleTicket.total).toBe(0);
+      119 |   });
+      120 |
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:117:29)
+
+  ● Backend foundation PostgreSQL guarantees › rolls back items, totals and audit when the comanda version update fails
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 7
+    + Received  + 7
+
+    @@ -27,31 +27,31 @@
+              "id": "e6b83b5e-d5c9-4ba6-88aa-fe2cc3383626",
+              "productId": "caa169c2-8ae9-4c7c-a599-964c68cb5b6b",
+              "productNameSnapshot": "a429a99e-146a-4f3f-99f7-1349c50e5539",
+              "productSkuSnapshot": "a429a99e-146a-4f3f-99f7-1349c50e5539",
+              "productUnitSnapshot": "UNIT",
+    -         "quantity": "2",
+    -         "subtotal": "20",
+    +         "quantity": "3",
+    +         "subtotal": "30",
+              "ticketId": "7b104a18-c564-4b83-932a-8dfb2f48ddf4",
+              "unitCostSnapshot": "2",
+              "unitPriceSnapshot": "10",
+    -         "updatedAt": 2026-09-30T13:15:24.629Z,
+    +         "updatedAt": 2026-09-30T13:15:24.659Z,
+            },
+          ],
+          "notes": null,
+          "paymentBankId": null,
+          "paymentBankName": null,
+          "paymentBankNameSnapshot": null,
+          "paymentMethod": null,
+          "salesChannelId": "4b6f8cc5-bb4c-4def-a348-4fec5d5914bd",
+          "salesChannelName": "a429a99e-146a-4f3f-99f7-1349c50e5539",
+          "status": "DRAFT",
+    -     "subtotal": "20",
+    +     "subtotal": "30",
+          "ticketNumber": 16,
+    -     "total": "20",
+    -     "updatedAt": 2026-09-30T13:15:24.631Z,
+    -     "version": "2",
+    +     "total": "30",
+    +     "updatedAt": 2026-09-30T13:15:24.662Z,
+    +     "version": "3",
+          "voidReason": null,
+          "voidedAt": null,
+          "voidedById": null,
+        },
+        "saleTicketId": "7b104a18-c564-4b83-932a-8dfb2f48ddf4",
+
+      125 |     instrument(async (model, method) => { if (model === 'tableOrder' && method === 'update') throw new Error('comanda fault'); });
+      126 |     await expect(orders.addItem(current.id, { productId, quantity: 1 }, userId)).rejects.toThrow('comanda fault');
+    > 127 |     expect(await orders.findOne(current.id)).toEqual(current);
+          |                                              ^
+      128 |     expect(await counts()).toEqual(before);
+      129 |   });
+      130 |
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:127:46)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 10 skipped, 13 total
+Snapshots:   0 total
+Time:        4.548 s, estimated 5 s
+Ran all test suites matching test/foundation.e2e-spec.ts with tests matching "rolls back commercial|increments the comanda|rolls back items".
+
+
+transaction-reproduction
+FAIL src/database/transaction.spec.ts
+  ● runSerializableTransaction › fails explicitly without a transaction instead of running the callback
+
+    expect(received).rejects.toThrow()
+
+    Received promise resolved instead of rejected
+    Resolved to value: "unsafe"
+
+       8 |     const callback = jest.fn().mockResolvedValue('unsafe');
+       9 |     const prisma = { $transaction: jest.fn() } as unknown as PrismaService;
+    > 10 |     await expect(runSerializableTransaction(prisma, callback)).rejects.toThrow();
+         |           ^
+      11 |     expect(callback).not.toHaveBeenCalled();
+      12 |   });
+      13 |   it('retries serialization conflicts and uses SERIALIZABLE isolation', async () => {
+
+      at expect (node_modules/expect/build/index.js:2116:15)
+      at Object.<anonymous> (src/database/transaction.spec.ts:10:11)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.236 s
+Ran all test suites matching src/database/transaction.spec.ts.
+Test results written to: evidence\transaction-reproduction.json
+
+
+linked-reproduction
+FAIL test/foundation.e2e-spec.ts (5.01 s)
+  ● Backend foundation PostgreSQL guarantees › keeps a linked comanda version coherent when its ticket is edited directly
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "3"
+    Received: "2"
+
+      251 |     await request(`sales/tickets/${current.saleTicketId}/items/${current.saleTicket.items[0].id}`, { quantity: 1, expectedVersion: current.saleTicket.version }, 'PATCH');
+      252 |     const saved = await orders.findOne(current.id);
+    > 253 |     expect(saved.version).toBe((BigInt(current.version) + 1n).toString());
+          |                           ^
+      254 |     expect(saved.saleTicket.total).toBe('10');
+      255 |   });
+      256 |
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:253:27)
+
+  ● Backend foundation PostgreSQL guarantees › closes a linked comanda atomically when confirming its ticket directly
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "CLOSED"
+    Received: "OPEN"
+
+      259 |     await request(`sales/tickets/${current.saleTicketId}/confirm`, { paymentMethod: 'CASH' });
+      260 |     const saved = await orders.findOne(current.id);
+    > 261 |     expect(saved.status).toBe('CLOSED');
+          |                          ^
+      262 |     expect(saved.saleTicket.status).toBe('CONFIRMED');
+      263 |     expect(saved.version).toBe((BigInt(current.version) + 1n).toString());
+      264 |   });
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:261:26)
+
+  ● Backend foundation PostgreSQL guarantees › cancels a linked comanda atomically when cancelling its ticket directly
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "CANCELLED"
+    Received: "OPEN"
+
+      268 |     await request(`sales/tickets/${current.saleTicketId}/cancel`, { reason: 'test' });
+      269 |     const saved = await orders.findOne(current.id);
+    > 270 |     expect(saved.status).toBe('CANCELLED');
+          |                          ^
+      271 |     expect(saved.saleTicket.status).toBe('CANCELLED');
+      272 |   });
+      273 | });
+
+      at Object.<anonymous> (test/foundation.e2e-spec.ts:270:26)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 13 skipped, 16 total
+Snapshots:   0 total
+Time:        5.22 s, estimated 9 s
+Ran all test suites matching test/foundation.e2e-spec.ts with tests matching "linked comanda".
+

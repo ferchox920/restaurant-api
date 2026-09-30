@@ -268,6 +268,7 @@ export class SalesService {
           tx,
         );
 
+        await this.syncRelatedOrder(tx, ticketId, actorUserId);
         return updatedTicket;
       },
     );
@@ -279,6 +280,8 @@ export class SalesService {
     ticketId: string,
     dto: AddSaleTicketItemDto,
     actorUserId?: string,
+    transaction?: SalesTransactionClient,
+    fromTableOrder = false,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
@@ -383,8 +386,11 @@ export class SalesService {
           tx,
         );
 
+        if (!fromTableOrder)
+          await this.syncRelatedOrder(tx, ticketId, actorUserId);
         return updatedTicket;
       },
+      transaction,
     );
 
     return toSaleTicketResponse(ticket);
@@ -395,6 +401,8 @@ export class SalesService {
     itemId: string,
     dto: UpdateSaleTicketItemDto,
     actorUserId?: string,
+    transaction?: SalesTransactionClient,
+    fromTableOrder = false,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
@@ -453,8 +461,11 @@ export class SalesService {
           tx,
         );
 
+        if (!fromTableOrder)
+          await this.syncRelatedOrder(tx, ticketId, actorUserId);
         return updatedTicket;
       },
+      transaction,
     );
 
     return toSaleTicketResponse(ticket);
@@ -464,10 +475,14 @@ export class SalesService {
     ticketId: string,
     itemId: string,
     actorUserId?: string,
+    expectedVersion?: string,
+    transaction?: SalesTransactionClient,
+    fromTableOrder = false,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
-        await this.ensureDraftTicket(tx, ticketId);
+        const saleTicket = await this.ensureDraftTicket(tx, ticketId);
+        this.assertExpectedVersion(saleTicket, expectedVersion);
 
         const item = await tx.saleTicketItem.findFirst({
           where: {
@@ -512,8 +527,11 @@ export class SalesService {
           tx,
         );
 
+        if (!fromTableOrder)
+          await this.syncRelatedOrder(tx, ticketId, actorUserId);
         return updatedTicket;
       },
+      transaction,
     );
 
     return toSaleTicketResponse(ticket);
@@ -525,8 +543,22 @@ export class SalesService {
     cancelledById: string,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
-      async (tx: SalesTransactionClient) =>
-        this.cancelDraftInTransaction(ticketId, dto, cancelledById, tx),
+      async (tx: SalesTransactionClient) => {
+        const result = await this.cancelDraftInTransaction(
+          ticketId,
+          dto,
+          cancelledById,
+          tx,
+        );
+        await this.syncRelatedOrder(
+          tx,
+          ticketId,
+          cancelledById,
+          'CANCELLED',
+          dto.reason,
+        );
+        return result;
+      },
     );
 
     return toSaleTicketResponse(ticket);
@@ -579,10 +611,20 @@ export class SalesService {
     ticketId: string,
     dto: ConfirmSaleTicketDto,
     confirmedById: string,
+    transaction?: SalesTransactionClient,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
-      async (tx: SalesTransactionClient) =>
-        this.confirmDraftInTransaction(ticketId, dto, confirmedById, tx),
+      async (tx: SalesTransactionClient) => {
+        const result = await this.confirmDraftInTransaction(
+          ticketId,
+          dto,
+          confirmedById,
+          tx,
+        );
+        await this.syncRelatedOrder(tx, ticketId, confirmedById, 'CLOSED');
+        return result;
+      },
+      transaction,
     );
 
     return toSaleTicketResponse(ticket);
@@ -684,6 +726,7 @@ export class SalesService {
     ticketId: string,
     dto: VoidSaleTicketDto,
     voidedById: string,
+    transaction?: SalesTransactionClient,
   ): Promise<SaleTicketResponseDto> {
     const ticket = await this.runInTransaction(
       async (tx: SalesTransactionClient) => {
@@ -751,11 +794,81 @@ export class SalesService {
           tx,
         );
 
+        await this.syncRelatedOrder(tx, ticketId, voidedById, 'VOIDED');
         return updatedTicket;
       },
+      transaction,
     );
 
     return toSaleTicketResponse(ticket);
+  }
+
+  private async syncRelatedOrder(
+    tx: SalesTransactionClient,
+    ticketId: string,
+    actorUserId?: string,
+    transition?: 'CLOSED' | 'CANCELLED' | 'VOIDED',
+    reason?: string,
+  ): Promise<void> {
+    const existing = await tx.tableOrder.findUnique({
+      where: { saleTicketId: ticketId },
+    });
+    if (!existing) return;
+    if (transition !== 'VOIDED' && existing.status !== 'OPEN')
+      throw new ConflictException('The related table order must be OPEN.');
+    const data: Prisma.TableOrderUncheckedUpdateInput = {
+      version: { increment: 1 },
+      ...(transition === 'CLOSED'
+        ? {
+            status: 'CLOSED',
+            closedById: actorUserId,
+            closedAt: new Date(),
+          }
+        : {}),
+      ...(transition === 'CANCELLED'
+        ? {
+            status: 'CANCELLED',
+            cancelledById: actorUserId,
+            cancelledAt: new Date(),
+            cancelReason: reason,
+          }
+        : {}),
+    };
+    const updated = await tx.tableOrder.update({
+      where: { id: existing.id },
+      data,
+    });
+    if (this.configService.get<boolean>('OPERATIONS_SSE')) {
+      const event = await tx.operationEvent.create({
+        data: {
+          type: 'table-order.changed',
+          entityType: 'TableOrder',
+          entityId: updated.id,
+          version: updated.version,
+          related: {
+            restaurantTableId: updated.restaurantTableId,
+            saleTicketId: ticketId,
+          },
+        },
+      });
+      await tx.$executeRaw`SELECT pg_notify('operation_events', ${event.id.toString()})`;
+    }
+    if (transition === 'CLOSED' || transition === 'CANCELLED')
+      await this.auditService.log(
+        {
+          userId: actorUserId,
+          action:
+            transition === 'CLOSED'
+              ? AuditAction.TABLE_ORDER_CLOSED
+              : AuditAction.TABLE_ORDER_CANCELLED,
+          entityType: AuditEntityType.TABLE_ORDER,
+          entityId: updated.id,
+          beforeData: { ...existing, version: existing.version.toString() },
+          afterData: { ...updated, version: updated.version.toString() },
+          metadata: { saleTicketId: ticketId, source: 'sales' },
+        },
+        tx,
+      );
   }
 
   private async getTicketOrThrow(
@@ -787,6 +900,7 @@ export class SalesService {
         id: true,
         salesChannelId: true,
         status: true,
+        version: true,
       },
     });
 
@@ -1214,7 +1328,9 @@ export class SalesService {
 
   private runInTransaction<T>(
     callback: (tx: SalesTransactionClient) => Promise<T>,
+    transaction?: SalesTransactionClient,
   ): Promise<T> {
+    if (transaction) return callback(transaction);
     return runSerializableTransaction(this.prisma, callback);
   }
 }

@@ -45,7 +45,7 @@ describe('TableOrdersService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
-        update: jest.fn(),
+        update: jest.fn().mockImplementation(async () => makeOrder()),
       },
     };
     salesService = {
@@ -336,8 +336,10 @@ describe('TableOrdersService', () => {
 
     expect(salesService.addItem).toHaveBeenCalledWith(
       'ticket-1',
-      { productId: 'product-1', quantity: 2 },
+      { productId: 'product-1', quantity: 2, expectedVersion: '1' },
       'cashier-1',
+      prismaService,
+      true,
     );
     expect(result.id).toBe('order-1');
   });
@@ -352,8 +354,10 @@ describe('TableOrdersService', () => {
     expect(salesService.updateItem).toHaveBeenCalledWith(
       'ticket-1',
       'item-1',
-      { quantity: 3 },
+      { quantity: 3, expectedVersion: '1' },
       'cashier-1',
+      prismaService,
+      true,
     );
   });
 
@@ -368,6 +372,9 @@ describe('TableOrdersService', () => {
       'ticket-1',
       'item-1',
       'cashier-1',
+      '1',
+      prismaService,
+      true,
     );
   });
 
@@ -419,6 +426,7 @@ describe('TableOrdersService', () => {
       where: { id: 'order-1' },
       data: {
         status: 'CLOSED',
+        version: { increment: 1 },
         closedById: 'cashier-1',
         closedAt: expect.any(Date),
       },

@@ -15,12 +15,13 @@ export async function runSerializableTransaction<T>(
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
 
-      // Some unit tests use a lightweight Prisma mock without an implementation.
       if (
         !transactionResult ||
         typeof (transactionResult as Promise<T>).then !== 'function'
       ) {
-        return callback(prisma as unknown as Prisma.TransactionClient);
+        throw new Error(
+          'Prisma did not provide a transaction; refusing non-atomic execution.',
+        );
       }
 
       return await transactionResult;
